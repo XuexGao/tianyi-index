@@ -1,0 +1,243 @@
+/* ============================================================
+   Glassmorphism & Wallpaper Theme
+   Migrated from AList custom styles → onedrive-index-pro
+   ============================================================ */
+
+/* ---------- CSS Variables ---------- */
+:root {
+  --glass-bg-light: rgba(255, 255, 255, 0.50);
+  --glass-bg-dark:  rgba(10, 10, 20, 0.50);
+  --glass-blur:     blur(14px);
+  --glass-border-light: rgba(255, 255, 255, 0.45);
+  --glass-border-dark:  rgba(255, 255, 255, 0.08);
+  --main-font: "LXGW WenKai", "Inter", sans-serif;
+}
+
+/* ---------- Global Font ---------- */
+* {
+  font-family: var(--main-font) !important;
+}
+
+/* ---------- Background Wallpaper ---------- */
+#bg-wallpaper {
+  position: fixed;
+  inset: 0;
+  z-index: -999;
+  overflow: hidden;
+}
+
+#bg-wallpaper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(0.25rem);
+  transform: scale(1.02);
+  pointer-events: none;
+}
+
+/* ---------- Transparent page shells ---------- */
+html,
+body,
+#__next,
+#__next > div {
+  background: transparent !important;
+}
+
+.od-page-wrapper {
+  background: transparent !important;
+}
+
+/* Override Tailwind bg classes on the main structural elements */
+main,
+.od-main,
+.od-main.bg-gray-50,
+.od-main.bg-gray-800,
+.od-page-wrapper.bg-white,
+.od-page-wrapper.bg-gray-900 {
+  background: transparent !important;
+}
+
+/* ---------- Navbar ---------- */
+.od-navbar {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+
+/* ---------- Breadcrumb bar frosted glass ---------- */
+.od-breadcrumb-bar {
+  background-color: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .od-breadcrumb-bar {
+    background-color: rgba(15, 15, 25, 0.50);
+  }
+}
+
+/* Prevent parent backdrop-filter from breaking child popup backdrop-filter */
+.od-popup-isolate {
+  isolation: isolate;
+}
+
+/* ---------- File listing container ---------- */
+.od-files-container {
+  background-color: rgba(255, 255, 255, 0.35) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
+  border: none !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .od-files-container {
+    background-color: rgba(10, 10, 20, 0.40) !important;
+    border: none !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35) !important;
+  }
+}
+
+/* ---------- File / Folder list rows ---------- */
+.od-file-entry {
+  transition: all 0.25s ease-in-out !important;
+  border-radius: 0.625rem !important;
+}
+
+.od-file-entry:hover {
+  transform: translateY(-3px) scale(1.005) !important;
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.09) !important;
+  z-index: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  .od-file-entry:hover {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.40) !important;
+  }
+}
+
+.od-file-entry:active {
+  transform: translateY(-1px) scale(0.998) !important;
+}
+
+/* ---------- Grid thumbnail cards ---------- */
+.od-grid-item {
+  transition: all 0.25s ease-in-out !important;
+}
+
+.od-grid-item:hover {
+  transform: translateY(-4px) scale(1.02) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .od-grid-item:hover {
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.50) !important;
+  }
+}
+
+/* ---------- Auth / Password modal ---------- */
+.od-modal-overlay {
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  background-color: rgba(0, 0, 0, 0.25) !important;
+}
+
+.od-modal-content {
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  background-color: rgba(255, 255, 255, 0.60) !important;
+  border: 1px solid rgba(255, 255, 255, 0.50) !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.14) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .od-modal-content {
+    background-color: rgba(15, 15, 25, 0.65) !important;
+    border-color: rgba(255, 255, 255, 0.10) !important;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45) !important;
+  }
+}
+
+/* ---------- Footer ---------- */
+.od-footer {
+  background-color: transparent !important;
+}
+
+/* ---------- Umami Stats Footer Widget ---------- */
+#umami-footer {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 7px 20px;
+  border-radius: 999px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background-color: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  font-size: 13px;
+  color: #444;
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+  font-family: var(--main-font) !important;
+}
+
+#umami-footer.hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(80px);
+  pointer-events: none;
+}
+
+/* 入口动画：初始在屏幕下方，进入后弹出 */
+#umami-footer.umami-enter {
+  opacity: 0;
+  transform: translateX(-50%) translateY(80px);
+  pointer-events: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  #umami-footer {
+    background-color: rgba(15, 15, 25, 0.55);
+    border-color: rgba(255, 255, 255, 0.10);
+    color: #ccc;
+  }
+}
+
+#umami-footer span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+#umami-footer b {
+  color: #409EFF;
+}
+
+/* markdown-body 自带白色背景，强制透明让外层毛玻璃透出来 */
+.markdown-body {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+}
+
+/* 手机端：内容区域距离屏幕两侧留出间距 */
+@media (max-width: 640px) {
+  .mx-auto.w-full.max-w-5xl {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}
+
