@@ -45,9 +45,7 @@ const SwitchLayout = () => {
           <Listbox.Options
             className="od-popup-isolate absolute right-0 z-20 mt-1 w-32 overflow-auto rounded-2xl py-1 shadow-lg focus:outline-none"
             style={{
-              backgroundColor: 'rgba(255,255,255,0.55)',
-              backdropFilter: 'blur(14px)',
-              WebkitBackdropFilter: 'blur(14px)',
+              backgroundColor: 'rgba(255,255,255,0.92)',
               border: 'none',
             }}
           >
