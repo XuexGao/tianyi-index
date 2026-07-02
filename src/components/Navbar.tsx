@@ -118,7 +118,7 @@ const Navbar = () => {
       </div>
 
       <Transition appear show={isOpen} as={Fragment}>
-        <Dialog as="div" className="fixed inset-0 z-10 overflow-y-auto" open={isOpen} onClose={() => setIsOpen(false)}>
+        <Dialog as="div" className="od-popup-isolate fixed inset-0 z-10 overflow-y-auto" open={isOpen} onClose={() => setIsOpen(false)}>
           <div className="min-h-screen px-4 text-center">
             <Transition.Child
               as={Fragment}
@@ -129,7 +129,10 @@ const Navbar = () => {
               leaveFrom="opacity-100"
               leaveTo="opacity-0"
             >
-              <Dialog.Overlay className="fixed inset-0 bg-gray-50/80 backdrop-blur-md dark:bg-gray-800/80" />
+              <Dialog.Overlay
+                className="fixed inset-0 bg-gray-50/50 dark:bg-gray-800/50"
+                style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+              />
             </Transition.Child>
 
             {/* This element is to trick the browser into centering the modal contents. */}
