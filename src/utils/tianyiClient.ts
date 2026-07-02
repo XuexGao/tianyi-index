@@ -82,6 +82,38 @@ function preserveLongIds(data: string): any {
 }
 
 /**
+ * 自然排序比较函数（natural sort，不区分大小写）。
+ * 规则：
+ *   1. 把文件名拆成「数字段」和「非数字段」交替的序列
+ *   2. 数字段按数值大小比较（这样 2 < 10，而非字符串比较的 "10" < "2"）
+ *   3. 非数字段按字符串比较（小写优先，不区分大小写）
+ *   4. 数字开头的项天然会先与空串比较，因此数字开头的项排在字母开头之前
+ *      —— 满足"数字在上方、字母 a-z 在下方"的需求
+ */
+function naturalCompare(a: string, b: string): number {
+  const ax: (number | string)[] = []
+  const bx: (number | string)[] = []
+  a.replace(/(\d+)|(\D+)/g, (_, $1, $2) => {
+    ax.push($1 ? parseInt($1, 10) : $2.toLowerCase())
+    return ''
+  })
+  b.replace(/(\d+)|(\D+)/g, (_, $1, $2) => {
+    bx.push($1 ? parseInt($1, 10) : $2.toLowerCase())
+    return ''
+  })
+  while (ax.length && bx.length) {
+    const an = ax.shift()!
+    const bn = bx.shift()!
+    const nn =
+      typeof an === 'number' && typeof bn === 'number'
+        ? an - bn
+        : String(an).localeCompare(String(bn))
+    if (nn !== 0) return nn
+  }
+  return ax.length - bx.length
+}
+
+/**
  * 获取文件列表
  */
 export async function getFiles(
@@ -207,6 +239,12 @@ export async function getFiles(
 
       pageNum++
     }
+
+    // 按名称自然排序：数字开头的排在前，数字按数值大小比较（2 < 10），字母 a-z 升序
+    // 天翼云 API 的 orderBy=name 是字符串排序，无法满足"2 < 10"和"数字在上方"的需求，
+    // 这里在前端再排一次。
+    folderList.sort((a, b) => naturalCompare(a.name, b.name))
+    fileList.sort((a, b) => naturalCompare(a.name, b.name))
 
     return {
       status: 'success',
