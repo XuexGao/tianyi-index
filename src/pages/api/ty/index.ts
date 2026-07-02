@@ -15,6 +15,8 @@ function getDefaultFolderId(): string { return process.env.DEFAULT_FOLDER_ID || 
 
 /**
  * 获取或创建天翼云会话
+ * 注意：所有可能抛错的调用都已包裹 try/catch，避免错误冒泡到 Next.js 顶层
+ * 导致整个 API 返回 HTML 500 页面（而非可读的 JSON 错误）。
  */
 async function getOrCreateSession(): Promise<{
   cookies: Record<string, string>
@@ -24,14 +26,18 @@ async function getOrCreateSession(): Promise<{
   const U = process.env.TIANYI_USERNAME || ''
   const P = process.env.TIANYI_PASSWORD || ''
 
-  // 1. 从 Redis 获取已有会话
-  const session = await getTianyiSession(DEFAULT_USER_ID)
-  if (session?.cookies && Object.keys(session.cookies).length > 0) {
-    return {
-      cookies: session.cookies,
-      username: session.username || U,
-      password: session.password || P,
+  // 1. 从 Redis 获取已有会话（Redis 失败时 getTianyiSession 返回 null，自动降级）
+  try {
+    const session = await getTianyiSession(DEFAULT_USER_ID)
+    if (session?.cookies && Object.keys(session.cookies).length > 0) {
+      return {
+        cookies: session.cookies,
+        username: session.username || U,
+        password: session.password || P,
+      }
     }
+  } catch {
+    // Redis 读取失败，继续走自动登录
   }
 
   // 2. 自动登录
@@ -39,16 +45,17 @@ async function getOrCreateSession(): Promise<{
     return null
   }
 
-  const loginResult = await cloud189Login(U, P)
-  if (loginResult.status === 'success' && loginResult.data?.cookies) {
-    await saveTianyiSession(loginResult.data.cookies, {
-      username: U,
-      password: P,
-    })
-    return { cookies: loginResult.data.cookies, username: U, password: P }
-  }
-
-  if (loginResult.status === 'need_captcha') {
+  try {
+    const loginResult = await cloud189Login(U, P)
+    if (loginResult.status === 'success' && loginResult.data?.cookies) {
+      // 持久化会话；saveTianyiSession 内部已有 try/catch，不会抛错
+      await saveTianyiSession(loginResult.data.cookies, {
+        username: U,
+        password: P,
+      })
+      return { cookies: loginResult.data.cookies, username: U, password: P }
+    }
+  } catch {
     return null
   }
 
@@ -79,19 +86,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const cleanPath = pathPosix.resolve('/', pathPosix.normalize(rawPath)).replace(/\/$/, '')
   const segments = cleanPath === '/' ? [] : cleanPath.split('/').filter(Boolean)
 
-  // 获取会话
-  const session = await getOrCreateSession()
-  if (!session) {
-    res.status(403).json({
-      error: 'No access token. 请配置 TIANYI_USERNAME 和 TIANYI_PASSWORD 环境变量。',
-    })
-    return
-  }
-
-  const { username, password } = session
-  let cookies = session.cookies
-
+  // 整个 handler 逻辑都放进 try/catch，确保任何未预期错误都返回 JSON 而非 HTML 500
   try {
+    // 获取会话
+    const session = await getOrCreateSession()
+    if (!session) {
+      res.status(403).json({
+        error: 'No access token. 请配置 TIANYI_USERNAME 和 TIANYI_PASSWORD 环境变量，或登录失败（可能需要验证码）。',
+      })
+      return
+    }
+
+    const { username, password } = session
+    let cookies = session.cookies
+
     // 逐层解析路径 -> folderId
     let currentFolderId = getDefaultFolderId()
 

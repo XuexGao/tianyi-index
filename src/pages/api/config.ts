@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import type { LoginResult } from '../../utils/tianyiAuth'
 import { cloud189Login } from '../../utils/tianyiAuth'
+import { getRedisStatus } from '../../utils/tianyiSessionStore'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const U = process.env.TIANYI_USERNAME || ''
@@ -11,6 +12,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     loginTest = await cloud189Login(U, P)
   }
 
+  const redisStatus = getRedisStatus()
+  // 脱敏 REDIS_URL，只显示协议和主机，不暴露密码
+  const redisUrlRaw = process.env.REDIS_URL || ''
+  let redisUrlMasked = ''
+  try {
+    if (redisUrlRaw) {
+      const u = new URL(redisUrlRaw)
+      redisUrlMasked = `${u.protocol}//***@${u.host}`
+    }
+  } catch {
+    redisUrlMasked = '(格式无效)'
+  }
+
   const lt = loginTest as LoginResult
   res.status(200).json({
     status: 'success',
@@ -19,6 +33,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       rootFolderId: '-11',
       usernameConfigured: Boolean(U),
       passwordConfigured: Boolean(P),
+      redis: {
+        initialized: redisStatus.initialized,
+        error: redisStatus.error,
+        urlMasked: redisUrlMasked,
+        urlProtocol: redisUrlRaw ? new URL(redisUrlRaw).protocol : '',
+      },
       loginTest: {
         status: lt.status,
         message: 'message' in lt ? lt.message?.substring(0, 100) : '',

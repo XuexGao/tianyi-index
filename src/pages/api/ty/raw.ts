@@ -23,34 +23,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const cleanPath = pathPosix.resolve('/', pathPosix.normalize(path)).replace(/\/$/, '')
   const segments = cleanPath === '/' ? [] : cleanPath.split('/').filter(Boolean)
 
-  // 获取会话
-  const session = await getTianyiSession(DEFAULT_USER_ID)
-  let cookies = session?.cookies || null
-  let username = session?.username || process.env.TIANYI_USERNAME || ''
-  let password = session?.password || process.env.TIANYI_PASSWORD || ''
+  // 整个 handler 逻辑都放进 try/catch，确保任何未预期错误都返回 JSON 而非 HTML 500
+  try {
+    // 获取会话（getTianyiSession 内部已有 try/catch，失败返回 null）
+    const session = await getTianyiSession(DEFAULT_USER_ID)
+    let cookies = session?.cookies || null
+    let username = session?.username || process.env.TIANYI_USERNAME || ''
+    let password = session?.password || process.env.TIANYI_PASSWORD || ''
 
-  if (!cookies) {
-    if (!process.env.TIANYI_USERNAME || !process.env.TIANYI_PASSWORD) {
+    if (!cookies) {
+      if (!process.env.TIANYI_USERNAME || !process.env.TIANYI_PASSWORD) {
+        res.status(403).json({ error: 'No access token.' })
+        return
+      }
+      const loginResult = await cloud189Login(process.env.TIANYI_USERNAME, process.env.TIANYI_PASSWORD)
+      if (loginResult.status !== 'success') {
+        res.status(403).json({ error: 'Login failed: ' + (loginResult.message || loginResult.status) })
+        return
+      }
+      cookies = loginResult.data?.cookies || null
+      if (cookies) {
+        // saveTianyiSession 内部已有 try/catch，不会抛错
+        await saveTianyiSession(cookies, { username: process.env.TIANYI_USERNAME, password: process.env.TIANYI_PASSWORD })
+      }
+    }
+
+    if (!cookies) {
       res.status(403).json({ error: 'No access token.' })
       return
     }
-    const loginResult = await cloud189Login(process.env.TIANYI_USERNAME, process.env.TIANYI_PASSWORD)
-    if (loginResult.status !== 'success') {
-      res.status(403).json({ error: 'Login failed.' })
-      return
-    }
-    cookies = loginResult.data?.cookies || null
-    if (cookies) {
-      await saveTianyiSession(cookies, { username: process.env.TIANYI_USERNAME, password: process.env.TIANYI_PASSWORD })
-    }
-  }
 
-  if (!cookies) {
-    res.status(403).json({ error: 'No access token.' })
-    return
-  }
-
-  try {
     // 逐层查找文件
     let currentFolderId = process.env.DEFAULT_FOLDER_ID || '-11'
     let fileId: string | null = null
