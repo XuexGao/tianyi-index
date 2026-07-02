@@ -60,6 +60,28 @@ function randomStr(): string {
 }
 
 /**
+ * axios transformResponse：保护 19 位 long 类型 ID 不被 JSON.parse 转成 Number 丢精度。
+ * 天翼云的 file/folder id（如 8247532039947921XX）超过 Number.MAX_SAFE_INTEGER，
+ * 直接 JSON.parse 会末尾被置零。这里用正则把 >= 16 位的纯整数 token 包成字符串。
+ * 注意：必须设置 responseType 为文本后再手动 parse，否则 axios 默认就 parse 完了。
+ */
+function preserveLongIds(data: string): any {
+  if (typeof data !== 'string') return data
+  // 匹配 JSON 中形如 "id": 8247532039947921XX 或 "id" : 123 这样的 16 位以上纯整数
+  // 用正则把值两侧加上引号，使其解析为字符串
+  const protectedJson = data.replace(
+    /("(?:id|fileId|folderId|parentId|srcFileOwnerId|operId|userId|familyId|groupId)"\s*:\s*)(\d{16,})/g,
+    (_match, key, num) => `${key}"${num}"`,
+  )
+  try {
+    return JSON.parse(protectedJson)
+  } catch {
+    // parse 失败则原样返回原始文本，交由后续逻辑处理
+    return data
+  }
+}
+
+/**
  * 获取文件列表
  */
 export async function getFiles(
@@ -71,6 +93,8 @@ export async function getFiles(
   const client = axios.create({
     timeout: 30000,
     validateStatus: (status) => status < 500, // 允许 400 状态，用于检查 InvalidSessionKey
+    // 自定义响应解析：保护 19 位 long 类型 ID 不丢精度
+    transformResponse: [preserveLongIds],
     headers: {
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -207,6 +231,8 @@ export async function getDownloadLink(
   const client = axios.create({
     timeout: 30000,
     maxRedirects: 0,
+    // 自定义响应解析：保护 19 位 long 类型 ID 不丢精度
+    transformResponse: [preserveLongIds],
     headers: {
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
