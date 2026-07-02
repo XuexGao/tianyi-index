@@ -18,12 +18,14 @@ function getDefaultFolderId(): string { return process.env.DEFAULT_FOLDER_ID || 
  * 获取或创建天翼云会话
  * 注意：所有可能抛错的调用都已包裹 try/catch，避免错误冒泡到 Next.js 顶层
  * 导致整个 API 返回 HTML 500 页面（而非可读的 JSON 错误）。
+ *
+ * @returns session 成功时返回会话；失败返回 { error } 携带真实失败原因
+ *          （验证码 / 密码错 / 网络错等），便于排查而非笼统的 "No access token"
  */
-async function getOrCreateSession(): Promise<{
-  cookies: Record<string, string>
-  username: string
-  password: string
-} | null> {
+async function getOrCreateSession(): Promise<
+  | { cookies: Record<string, string>; username: string; password: string }
+  | { error: string }
+> {
   const U = process.env.TIANYI_USERNAME || ''
   const P = process.env.TIANYI_PASSWORD || ''
 
@@ -43,7 +45,7 @@ async function getOrCreateSession(): Promise<{
 
   // 2. 自动登录
   if (!U || !P) {
-    return null
+    return { error: '未配置 TIANYI_USERNAME / TIANYI_PASSWORD 环境变量' }
   }
 
   try {
@@ -56,11 +58,14 @@ async function getOrCreateSession(): Promise<{
       })
       return { cookies: loginResult.data.cookies, username: U, password: P }
     }
-  } catch {
-    return null
+    // 登录未成功：透传真实原因（验证码 / 密码错 / 接口变更等）
+    if (loginResult.status === 'need_captcha') {
+      return { error: '天翼云登录需要验证码，请在浏览器登录 cloud.189.cn 一次后重试，或稍后再试' }
+    }
+    return { error: `天翼云登录失败: ${loginResult.message || loginResult.status}` }
+  } catch (e: any) {
+    return { error: `天翼云登录异常: ${e?.message || '未知错误'}` }
   }
-
-  return null
 }
 
 
@@ -91,10 +96,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // 获取会话
     const session = await getOrCreateSession()
-    if (!session) {
-      res.status(403).json({
-        error: 'No access token. 请配置 TIANYI_USERNAME 和 TIANYI_PASSWORD 环境变量，或登录失败（可能需要验证码）。',
-      })
+    if ('error' in session) {
+      res.status(403).json({ error: session.error })
       return
     }
 
