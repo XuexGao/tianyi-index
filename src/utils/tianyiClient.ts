@@ -8,6 +8,28 @@ import { saveTianyiSession } from './tianyiSessionStore'
 
 const DEFAULT_FOLDER_ID = process.env.DEFAULT_FOLDER_ID || '-11'
 
+/**
+ * 简易 TTL 内存缓存。
+ * Vercel serverless 实例间不共享，但同实例内的重复请求（如一次请求中
+ * 鉴权导航 + 路径解析会列出同一文件夹多次）可命中，显著减少到 cloud.189.cn
+ * 的串行网络往返。TTL 短（60s），文件变更后最多等 60s 即刷新。
+ */
+interface CacheEntry<T> { data: T; expires: number }
+const fileCache = new Map<string, CacheEntry<{ folders: TianyiFolder[]; files: TianyiFile[] }>>()
+
+function getCachedFiles(folderId: string) {
+  const entry = fileCache.get(folderId)
+  if (entry && entry.expires > Date.now()) {
+    return entry.data
+  }
+  fileCache.delete(folderId)
+  return null
+}
+
+function setCachedFiles(folderId: string, folders: TianyiFolder[], files: TianyiFile[]) {
+  fileCache.set(folderId, { data: { folders, files }, expires: Date.now() + 60000 })
+}
+
 export interface TianyiFile {
   id: string
   name: string
@@ -122,6 +144,15 @@ export async function getFiles(
   username?: string,
   password?: string,
 ): Promise<FilesResult> {
+  // 命中缓存则直接返回，跳过到 cloud.189.cn 的网络往返
+  const cached = getCachedFiles(folderId)
+  if (cached) {
+    return {
+      status: 'success',
+      data: { folders: cached.folders, files: cached.files, folderId },
+    }
+  }
+
   const client = axios.create({
     timeout: 30000,
     validateStatus: (status) => status < 500, // 允许 400 状态，用于检查 InvalidSessionKey
@@ -146,7 +177,7 @@ export async function getFiles(
 
   const listParams = (page: number) => ({
     noCache: randomStr(),
-    pageSize: '60',
+    pageSize: '100',
     pageNum: String(page),
     mediaType: '0',
     folderId: folderId,
@@ -245,6 +276,9 @@ export async function getFiles(
     // 这里在前端再排一次。
     folderList.sort((a, b) => naturalCompare(a.name, b.name))
     fileList.sort((a, b) => naturalCompare(a.name, b.name))
+
+    // 写入缓存：后续 60s 内对同一 folderId 的请求直接命中，无需打 cloud.189.cn
+    setCachedFiles(folderId, folderList, fileList)
 
     return {
       status: 'success',

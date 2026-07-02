@@ -1,4 +1,5 @@
 {
+  "regions": ["hkg1"],
   "headers": [
     {
       "source": "/api/(.*)",
