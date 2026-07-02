@@ -72,7 +72,7 @@ const Navbar = () => {
         <Link href="/" passHref className="flex items-center space-x-2 py-2 hover:opacity-80 dark:text-white md:p-2">
           {/*<Image src={siteConfig.icon} alt="icon" width="25" height="25" priority />*/}
           <IconComponent {...iconProps} />
-          <span className="hidden font-bold sm:block">{siteConfig.title}</span>
+          <span className="font-bold">{siteConfig.title}</span>
         </Link>
 
         <div className="flex items-center space-x-4 text-gray-700 ml-auto">

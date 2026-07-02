@@ -4,7 +4,7 @@
  */
 module.exports = {
   // 网站图标
-  icon: 'fas-cloud',
+  icon: '/android-chrome-192x192.png',
 
   // Redis KV 存储前缀
   kvPrefix: process.env.KV_PREFIX || '',
