@@ -22,9 +22,7 @@ export default function Folders() {
         <Navbar />
         <div className="mx-auto w-full max-w-5xl py-4 px-3 sm:px-4 sm:p-4">
           <nav className="od-breadcrumb-bar relative z-10 mb-3 flex items-center justify-between gap-4 rounded-2xl px-4 py-1.5">
-            <div className="min-w-0 flex-1">
-              <Breadcrumb query={query} />
-            </div>
+            <Breadcrumb query={query} />
             <SwitchLayout />
           </nav>
           <div key={asPath}>
