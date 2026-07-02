@@ -12,10 +12,11 @@ module.exports = {
   // 网站标题
   title: process.env.NEXT_PUBLIC_SITE_TITLE || 'TianYi-Index',
 
-  // 受密码保护的路径（OneDrive 专用）
+  // 受密码保护的路径（在天翼云对应目录下放 .password 文件，内容为访问密码）
+  // 环境变量 NEXT_PUBLIC_PROTECTED_ROUTES 优先，逗号分隔；未配置时使用默认私密目录
   protectedRoutes: process.env.NEXT_PUBLIC_PROTECTED_ROUTES
     ? process.env.NEXT_PUBLIC_PROTECTED_ROUTES.split(',')
-    : [],
+    : ['/其他文件/文件传输'],
 
   // 联系邮箱
   email: process.env.NEXT_PUBLIC_EMAIL ? `mailto:${process.env.NEXT_PUBLIC_EMAIL}` : '',
