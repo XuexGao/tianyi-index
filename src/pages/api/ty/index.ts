@@ -6,6 +6,7 @@ import apiConfig from '../../../../config/api.config'
 import { cloud189Login } from '../../../utils/tianyiAuth'
 import { getFiles } from '../../../utils/tianyiClient'
 import { getTianyiSession, saveTianyiSession } from '../../../utils/tianyiSessionStore'
+import { checkProtectedRoute } from '../../../utils/protectedRouteChecker'
 
 const DEFAULT_USER_ID = 'default_user'
 
@@ -99,6 +100,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { username, password } = session
     let cookies = session.cookies
+
+    // === 受保护路由鉴权 ===
+    // 如果请求路径匹配 protectedRoutes，读取该目录下 .password 文件内容，
+    // SHA256 后与请求头 od-protected-token 比较，不匹配则返回 401。
+    const tokenHeader = (req.headers['od-protected-token'] as string) || ''
+    const authPassed = await checkProtectedRoute(cleanPath, tokenHeader, cookies, username, password)
+    if (!authPassed) {
+      res.status(401).json({ error: 'Password required.' })
+      return
+    }
 
     // 逐层解析路径 -> folderId
     let currentFolderId = getDefaultFolderId()

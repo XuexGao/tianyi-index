@@ -5,6 +5,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { cloud189Login } from '../../../utils/tianyiAuth'
 import { getFiles, getDownloadLink } from '../../../utils/tianyiClient'
 import { getTianyiSession, saveTianyiSession } from '../../../utils/tianyiSessionStore'
+import { checkProtectedRoute } from '../../../utils/protectedRouteChecker'
 
 const DEFAULT_USER_ID = 'default_user'
 
@@ -50,6 +51,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (!cookies) {
       res.status(403).json({ error: 'No access token.' })
+      return
+    }
+
+    // === 受保护路由鉴权 ===
+    // 防止绕过目录密码保护直接下载文件
+    // raw 下载是浏览器导航/重定向，无法设置自定义 header，所以前端通过 odpt 查询参数传 token
+    const odptToken = (req.query.odpt as string) || ''
+    const authPassed = await checkProtectedRoute(cleanPath, odptToken, cookies, username, password)
+    if (!authPassed) {
+      res.status(401).json({ error: 'Password required.' })
       return
     }
 
