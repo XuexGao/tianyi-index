@@ -15,13 +15,14 @@ import { getStoredToken } from '../utils/protectedRouteHandler'
 const FileListItem: FC<{ fileContent: OdFolderChildren }> = ({ fileContent: c }) => {
   return (
     <div className="grid cursor-pointer grid-cols-10 items-center space-x-2 px-3 py-2.5">
-      <div className="col-span-7 flex items-center space-x-2 truncate md:col-span-7" title={c.name}>
+      <div className="col-span-7 flex items-center space-x-2 truncate md:col-span-6" title={c.name}>
         <div className="w-5 flex-shrink-0 text-center">
           <ChildIcon child={c} />
         </div>
         <ChildName name={c.name} folder={Boolean(c.folder)} />
       </div>
-      <div className="col-span-3 flex-shrink-0 truncate text-right font-mono text-sm text-gray-700 dark:text-gray-500 md:col-span-3 md:text-left">
+      {/* 手机端：右对齐显示修改时间（占 Size 原来的位置）；桌面端：左对齐 */}
+      <div className="col-span-3 flex-shrink-0 truncate text-right font-mono text-sm text-gray-700 dark:text-gray-500 md:col-span-4 md:text-left">
         {formatModifiedDateTime(c.lastModifiedDateTime)}
       </div>
     </div>
@@ -53,10 +54,11 @@ const FolderListLayout = ({
   return (
     <div className="od-files-container rounded bg-white shadow-sm dark:bg-gray-900 dark:text-gray-100">
       <div className="grid grid-cols-12 items-center space-x-2 border-b border-gray-900/10 px-3 dark:border-gray-500/30">
-        <div className="col-span-7 py-2 text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300 md:col-span-7">
+        <div className="col-span-7 py-2 text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300 md:col-span-6">
           {t('Name')}
         </div>
-        <div className="col-span-5 text-right text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300 md:col-span-5 md:text-left">
+        {/* 手机端右对齐、桌面端左对齐，与数据行 Last Modified 列对齐 */}
+        <div className="col-span-5 text-right text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300 md:col-span-4 md:text-left">
           {t('Last Modified')}
         </div>
         <div className="hidden text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300 md:block">
