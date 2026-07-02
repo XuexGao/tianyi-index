@@ -60,6 +60,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const segment = decodeURIComponent(segments[i])
       const result = await getFiles(cookies, currentFolderId, username, password)
 
+      // getFiles 可能在会话失效后重新登录，同步新 cookies 供后续调用使用
+      if (result.data?.cookies) {
+        cookies = result.data.cookies
+      }
+
       if (result.status === 'need_refresh' && result.data?.cookies) {
         await saveTianyiSession(result.data.cookies, { username, password })
         cookies = result.data.cookies
@@ -77,6 +82,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (i < segments.length - 1) continue
         // 最后一段是文件夹 -> 不支持下载文件夹，返回第一个文件
         const innerResult = await getFiles(cookies, currentFolderId, username, password)
+        if (innerResult.data?.cookies) {
+          cookies = innerResult.data.cookies
+        }
         if (innerResult.status === 'success' && innerResult.data?.files.length) {
           fileId = innerResult.data.files[0].id
           fileName = innerResult.data.files[0].name

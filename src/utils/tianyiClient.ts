@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios'
 import { cloud189Login, LoginResult } from './tianyiAuth'
+import { saveTianyiSession } from './tianyiSessionStore'
 
 /**
  * 天翼云文件操作客户端
@@ -84,66 +85,59 @@ export async function getFiles(
   const folderList: TianyiFolder[] = []
   let pageNum = 1
   const MAX_PAGES = 5
+  let refreshedCookies: Record<string, string> | undefined
+  let sessionRefreshed = false
+
+  const listParams = (page: number) => ({
+    noCache: randomStr(),
+    pageSize: '60',
+    pageNum: String(page),
+    mediaType: '0',
+    folderId: folderId,
+    iconOption: '5',
+    orderBy: 'lastOpTime',
+    descending: 'true',
+  })
 
   try {
     while (pageNum <= MAX_PAGES) {
       const response = await client.get('https://cloud.189.cn/api/open/file/listFiles.action', {
-        params: {
-          noCache: randomStr(),
-          pageSize: '60',
-          pageNum: String(pageNum),
-          mediaType: '0',
-          folderId: folderId,
-          iconOption: '5',
-          orderBy: 'lastOpTime',
-          descending: 'true',
-        },
+        params: listParams(pageNum),
       })
 
       const data = response.data
 
-      // 检查登录是否失效（天翼云返回 400 + JSON 或 200 + 错误码）
+      // 仅当响应体明确指示会话失效时才判定为登录失效（避免把其他 4xx 错误误判为会话失效）
       const isInvalidSession =
-        response.status === 400 ||
         (typeof data === 'object' && data !== null && data.errorCode === 'InvalidSessionKey') ||
         (typeof data === 'string' && data.includes('InvalidSessionKey'))
 
       if (isInvalidSession) {
-        if (username && password) {
+        // 重新登录后用新 cookies 重试当前页（仅重试一次，避免死循环）
+        if (username && password && !sessionRefreshed) {
           const loginResult = await cloud189Login(username, password)
           if (loginResult.status === 'success' && loginResult.data?.cookies) {
-            // 更新 cookies 并重试当前页
-            const newCookies = loginResult.data.cookies
-            setCookies(client, newCookies)
-            // 使用新 cookies 重新请求
-            const retryResponse = await client.get('https://cloud.189.cn/api/open/file/listFiles.action', {
-              params: {
-                noCache: randomStr(),
-                pageSize: '60',
-                pageNum: String(pageNum),
-                mediaType: '0',
-                folderId: folderId,
-                iconOption: '5',
-                orderBy: 'lastOpTime',
-                descending: 'true',
-              },
-            })
-            if (retryResponse.status === 200 && retryResponse.data?.fileListAO) {
-              const newData = retryResponse.data
-              const fileListAO = newData.fileListAO
-              for (const folder of fileListAO.folderList || []) {
-                folderList.push({ id: String(folder.id), name: folder.name, lastOpTime: folder.lastOpTime, type: 'folder' })
-              }
-              for (const file of fileListAO.fileList || []) {
-                fileList.push({ id: String(file.id), name: file.name, lastOpTime: file.lastOpTime, size: file.size || 0, icon: file.icon?.smallUrl || '', type: 'file' })
-              }
-              // 重试成功后继续翻页，跳过当前循环
-              pageNum++
-              continue
-            }
+            sessionRefreshed = true
+            refreshedCookies = loginResult.data.cookies
+            setCookies(client, refreshedCookies)
+            // 持久化新会话，避免后续请求继续使用失效的旧 cookies
+            await saveTianyiSession(refreshedCookies, { username, password })
+            // 不递增 pageNum，用新 cookies 重新请求当前页
+            continue
           }
         }
         return { status: 'error', message: '登录已失效，请重新登录' }
+      }
+
+      // 处理其他非 200 响应（非会话失效的错误，返回真实错误信息而非"登录失效"）
+      if (response.status !== 200) {
+        const errMsg =
+          (typeof data === 'object' && data !== null
+            ? data.errorMsg || data.msg || data.res_message
+            : typeof data === 'string'
+              ? data
+              : '') || `获取文件列表失败 (HTTP ${response.status})`
+        return { status: 'error', message: errMsg }
       }
 
       // 检查错误码
@@ -192,7 +186,7 @@ export async function getFiles(
 
     return {
       status: 'success',
-      data: { folders: folderList, files: fileList, folderId },
+      data: { folders: folderList, files: fileList, folderId, cookies: refreshedCookies },
     }
   } catch (error: any) {
     return { status: 'error', message: `获取文件列表出错: ${error?.message || '未知错误'}` }

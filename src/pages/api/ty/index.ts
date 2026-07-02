@@ -88,7 +88,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 
-  const { cookies, username, password } = session
+  const { username, password } = session
+  let cookies = session.cookies
 
   try {
     // 逐层解析路径 -> folderId
@@ -97,6 +98,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (let i = 0; i < segments.length; i++) {
       const segment = decodeURIComponent(segments[i])
       const listResult = await getFiles(cookies, currentFolderId, username, password)
+
+      // getFiles 可能在会话失效后重新登录，这里同步更新本地 cookies 供后续调用使用
+      if (listResult.data?.cookies) {
+        cookies = listResult.data.cookies
+      }
 
       if (listResult.status === 'need_refresh' && listResult.data?.cookies) {
         await saveTianyiSession(listResult.data.cookies, { username, password })
@@ -143,6 +149,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 获取当前文件夹内容
     const result = await getFiles(cookies, currentFolderId, username, password)
+
+    // 同步 getFiles 重新登录后的新 cookies
+    if (result.data?.cookies) {
+      cookies = result.data.cookies
+    }
 
     if (result.status === 'need_refresh' && result.data?.cookies) {
       await saveTianyiSession(result.data.cookies, { username, password })
