@@ -231,6 +231,9 @@ export async function getDownloadLink(
   const client = axios.create({
     timeout: 30000,
     maxRedirects: 0,
+    // 接受 2xx 和 3xx：天翼云的 getFileInfo.action 和下载链接都会返回 302，
+    // 默认 validateStatus 只接受 2xx 会把 302 当错误抛出。
+    validateStatus: (status) => status < 400,
     // 自定义响应解析：保护 19 位 long 类型 ID 不丢精度
     transformResponse: [preserveLongIds],
     headers: {
@@ -244,10 +247,18 @@ export async function getDownloadLink(
   setCookies(client, cookies)
 
   try {
-    // 获取文件信息
-    const response = await client.get('https://cloud.189.cn/api/portal/getFileInfo.action', {
+    // 获取文件信息（天翼云可能返回 302 重定向到带 downloadUrl 的 JSON 接口，
+    // 这里手动跟随以保留 cookie 并拿到最终 JSON）
+    let response = await client.get('https://cloud.189.cn/api/portal/getFileInfo.action', {
       params: { fileId },
     })
+
+    // 手动跟随 getFileInfo 的 3xx 重定向（最多 5 次）
+    let redirectCount = 0
+    while (response.status >= 300 && response.status < 400 && response.headers.location && redirectCount < 5) {
+      response = await client.get(response.headers.location)
+      redirectCount++
+    }
 
     const fileInfo = response.data
 
@@ -269,24 +280,30 @@ export async function getDownloadLink(
       downloadUrl = 'https://' + downloadUrl
     }
 
-    // 跟踪重定向获取真实下载链接
+    // 跟踪下载链接的重定向获取真实下载地址（CDN 通常会 302 到带签名的 URL）
+    // 注意：用 stream 避免把整个文件下载到内存；遇到 3xx 就读 location 继续跟随，
+    // 遇到 2xx 说明已经是最终地址，直接销毁流并跳出。
     let realUrl = downloadUrl
-    let redirectCount = 0
-    const MAX_REDIRECTS = 3
+    let dlRedirectCount = 0
+    const MAX_DL_REDIRECTS = 5
 
-    while (redirectCount < MAX_REDIRECTS) {
-      const redirectRes = await client.get(realUrl, {
-        maxRedirects: 0,
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        },
-      })
+    while (dlRedirectCount < MAX_DL_REDIRECTS) {
+      let redirectRes
+      try {
+        redirectRes = await client.get(realUrl, {
+          responseType: 'stream',
+        })
+      } catch {
+        // 跟随失败则使用当前 realUrl，浏览器会自己处理重定向
+        break
+      }
+      // 立即销毁流，避免连接泄漏（我们只需要 headers）
+      redirectRes.data?.destroy?.()
       if (redirectRes.status >= 300 && redirectRes.status < 400) {
         const location = redirectRes.headers.location
         if (location) {
           realUrl = location
-          redirectCount++
+          dlRedirectCount++
         } else {
           break
         }
