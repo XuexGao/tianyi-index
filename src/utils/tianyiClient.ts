@@ -119,8 +119,8 @@ export async function getFiles(
     mediaType: '0',
     folderId: folderId,
     iconOption: '5',
-    orderBy: 'lastOpTime',
-    descending: 'true',
+    orderBy: 'name',
+    descending: 'false',
   })
 
   try {
