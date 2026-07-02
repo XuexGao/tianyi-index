@@ -114,7 +114,7 @@ const FolderListLayout = ({
           </Link>
 
           {c.folder ? (
-            <div className="hidden p-1.5 text-gray-700 dark:text-gray-400 md:flex">
+            <div className="hidden pl-3 pr-1.5 py-1.5 text-gray-700 dark:text-gray-400 md:flex">
               <span
                 title={t('Copy folder permalink')}
                 className="cursor-pointer rounded px-1.5 py-1 hover:bg-gray-300 dark:hover:bg-gray-600"
@@ -141,7 +141,7 @@ const FolderListLayout = ({
               )}
             </div>
           ) : (
-            <div className="hidden p-1.5 text-gray-700 dark:text-gray-400 md:flex">
+            <div className="hidden pl-3 pr-1.5 py-1.5 text-gray-700 dark:text-gray-400 md:flex">
               <span
                 title={t('Copy raw file permalink')}
                 className="cursor-pointer rounded px-1.5 py-1 hover:bg-gray-300 dark:hover:bg-gray-600"
@@ -163,7 +163,7 @@ const FolderListLayout = ({
               </a>
             </div>
           )}
-          <div className="hidden p-1.5 text-gray-700 dark:text-gray-400 md:flex">
+          <div className="hidden pl-3 pr-1.5 py-1.5 text-gray-700 dark:text-gray-400 md:flex">
             {!c.folder && !(c.name === '.password') && (
               <Checkbox
                 checked={selected[c.id] ? 2 : 0}
