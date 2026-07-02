@@ -26,3 +26,14 @@ export const humanFileSize = (size: number) => {
 export const formatModifiedDateTime = (lastModifedDateTime: string) => {
   return dayjs(lastModifedDateTime).format(siteConfig.datetimeFormat)
 }
+
+/**
+ * 手机端紧凑格式：只保留年份和时间，省略月日以节省横向空间。
+ * 例如 2024-01-15 14:30:00 -> "2024 14:30:00"
+ *
+ * @param lastModifedDateTime DateTime string in ISO format
+ * @returns Compact form: year + time
+ */
+export const formatModifiedDateTimeCompact = (lastModifedDateTime: string) => {
+  return dayjs(lastModifedDateTime).format('YYYY HH:mm:ss')
+}

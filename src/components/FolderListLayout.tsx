@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useTranslation } from 'next-i18next'
 
 import { getBaseUrl } from '../utils/getBaseUrl'
-import { formatModifiedDateTime } from '../utils/fileDetails'
+import { formatModifiedDateTime, formatModifiedDateTimeCompact } from '../utils/fileDetails'
 
 import { Downloading, Checkbox, ChildIcon, ChildName } from './FileListing'
 import { getStoredToken } from '../utils/protectedRouteHandler'
@@ -21,9 +21,10 @@ const FileListItem: FC<{ fileContent: OdFolderChildren }> = ({ fileContent: c })
         </div>
         <ChildName name={c.name} folder={Boolean(c.folder)} />
       </div>
-      {/* 手机端：右对齐显示修改时间（占 Size 原来的位置）；桌面端：左对齐 */}
+      {/* 手机端：右对齐显示紧凑时间（年份+时间，省略月日）；桌面端：左对齐显示完整时间 */}
       <div className="col-span-3 flex-shrink-0 truncate text-right font-mono text-sm text-gray-700 dark:text-gray-500 md:col-span-4 md:text-left">
-        {formatModifiedDateTime(c.lastModifiedDateTime)}
+        <span className="md:hidden">{formatModifiedDateTimeCompact(c.lastModifiedDateTime)}</span>
+        <span className="hidden md:inline">{formatModifiedDateTime(c.lastModifiedDateTime)}</span>
       </div>
     </div>
   )
