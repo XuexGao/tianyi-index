@@ -34,8 +34,8 @@
 | 变量 | 说明 |
 |------|------|
 | `CLIENT_ID` | Microsoft OAuth 客户端 ID，在 Azure Portal → App registrations 注册应用获取 |
-| `CLIENT_SECRET` | Microsoft OAuth 客户端密钥，需先用 OAuth 三步流程加密后填入（见下方说明） |
-| `USER_PRINCIPAL_NAME` | Microsoft 账户 UPN，用于 OAuth 身份校验 |
+| `CLIENT_SECRET` | Microsoft OAuth 客户端密钥，需先加密后填入（见下方说明） |
+| `USER_PRINCIPAL_NAME` | Microsoft 账户邮箱，用于 OAuth 身份校验 |
 | `BASE_DIRECTORY` | OneDrive 远端根目录，默认 `/`。设为 `/Photos/Blog` 则只挂载该子目录 |
 
 配置 OneDrive 后，访问 `/onedrive-index-oauth/step-1` 完成 OAuth 三步授权流程，将 refresh token 存入 Redis。
@@ -69,7 +69,8 @@ npm run dev
 
 1. 在 [Azure Portal](https://portal.azure.com/) → App registrations 注册一个应用
 2. 配置 Redirect URI 为 `http://localhost`（与 `config/api.config.js` 中 `redirectUri` 一致）
-3. 获取 `CLIENT_ID` 和 `CLIENT_SECRET`，填入环境变量
+3. 获取 `CLIENT_ID` 和 `CLIENT_SECRET`
+4. 把 `CLIENT_SECRET` [在线加密](https://www.dute.org/aes)，原始文本填入自己的secret，秘钥填入`onedrive-vercel-index`，`加/解密模式`选择`CBC (Cipher Block Chaining, Default)`，点击`AES 加密`就可以了，最后把产物填入变量
 4. 填入 `USER_PRINCIPAL_NAME`（你的 Microsoft 账户邮箱）
 5. 部署后访问 `/onedrive-index-oauth/step-1`，按页面提示完成三步授权
 6. 授权成功后 refresh token 会自动存入 Redis，OneDrive 即可正常使用
