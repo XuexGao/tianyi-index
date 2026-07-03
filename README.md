@@ -1,6 +1,6 @@
 # TianYi-Index — 天翼云文件索引
 
-基于 Next.js 的天翼云网盘文件浏览器。使用 OneDrive-Index 的毛玻璃 UI，后端替换为天翼云 API。
+把你的天翼云盘变成一个可分享的文件站点。基于 Next.js 构建，前端复用 OneDrive-Index 的部分功能，后端替换为天翼云 API。支持图片/视频/音频/PDF/Office/Markdown/EPUB/代码等多格式在线预览，多选打包下载，私密目录密码保护，8 种语言切换，配合 Vercel + Upstash Redis 实现零服务器部署。
 
 ## 功能
 
