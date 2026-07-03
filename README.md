@@ -70,7 +70,7 @@ npm run dev
 1. 在 [Azure Portal](https://portal.azure.com/) → App registrations 注册一个应用
 2. 配置 Redirect URI 为 `http://localhost`（与 `config/api.config.js` 中 `redirectUri` 一致）
 3. 获取 `CLIENT_ID` 和 `CLIENT_SECRET`
-4. 把 `CLIENT_SECRET` [在线加密](https://www.dute.org/aes)，原始文本填入自己的secret，秘钥填入`onedrive-vercel-index`，`加/解密模式`选择`CBC (Cipher Block Chaining, Default)`，点击`AES 加密`就可以了，最后把产物填入变量
+4. 把 `CLIENT_SECRET` [在线加密](https://onedrive-vercel-index.spencerwoo.com/docs/advanced#modify-configs-in-apiconfigjs)，原始文本填入自己的secret就可以了，最后把产物填入变量
 4. 填入 `USER_PRINCIPAL_NAME`（你的 Microsoft 账户邮箱）
 5. 部署后访问 `/onedrive-index-oauth/step-1`，按页面提示完成三步授权
 6. 授权成功后 refresh token 会自动存入 Redis，OneDrive 即可正常使用
