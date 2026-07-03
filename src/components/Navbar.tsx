@@ -52,7 +52,7 @@ const Navbar = () => {
   if (icon.startsWith('/')) {
     // If the icon is a URL, use the Image component
     IconComponent = Image;
-    iconProps = { src: icon, alt: 'icon', width: '20', height: '20', priority: true };
+    iconProps = { src: icon, alt: 'icon', width: '16', height: '16', priority: true };
   } else {
     // If the icon is a FontAwesome icon name, use the FontAwesomeIcon component
     if (!icon.includes('-')) {
