@@ -4,7 +4,7 @@ import JSZip from 'jszip'
 import { useTranslation } from 'next-i18next'
 
 import { fetcher } from '../utils/fetchWithSWR'
-import { getStoredToken } from '../utils/protectedRouteHandler'
+import { getStoredToken, driveFromApiBase } from '../utils/protectedRouteHandler'
 
 /**
  * A loading toast component with file download progress support
@@ -180,8 +180,8 @@ interface TraverseItem {
  * Due to top-down, Folder items are ALWAYS in front of its children items.
  * Error key in the item will contain the error when there is a handleable error.
  */
-export async function* traverseFolder(path: string): AsyncGenerator<TraverseItem, void, undefined> {
-  const hashedToken = getStoredToken(path)
+export async function* traverseFolder(path: string, apiBase: string = '/api/ty'): AsyncGenerator<TraverseItem, void, undefined> {
+  const hashedToken = getStoredToken(path, driveFromApiBase(apiBase))
 
   // Generate the task passed to Promise.race to request a folder
   const genTask = async (i: number, path: string, next?: string) => {
@@ -189,7 +189,7 @@ export async function* traverseFolder(path: string): AsyncGenerator<TraverseItem
       i,
       path,
       data: await fetcher([
-        next ? `/api/?path=${path}&next=${next}` : `/api/?path=${path}`,
+        next ? `${apiBase}/?path=${path}&next=${next}` : `${apiBase}/?path=${path}`,
         hashedToken ?? undefined,
       ]).catch(error => ({ i, path, error })),
     }

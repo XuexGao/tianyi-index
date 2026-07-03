@@ -14,6 +14,8 @@ import { getPreviewType, preview } from '../utils/getPreviewType'
 import { useProtectedSWRInfinite } from '../utils/fetchWithSWR'
 import { getExtension, getRawExtension, getFileIcon } from '../utils/getFileIcon'
 import { getStoredToken } from '../utils/protectedRouteHandler'
+import { resolveDrive, ONEDRIVE_ENABLED, VIRTUAL_ONEDRIVE_FOLDER_ID } from '../utils/driveResolver'
+import siteConfig from '../../config/site.config'
 import {
   DownloadingToast,
   downloadMultipleFiles,
@@ -157,20 +159,29 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
   }>({})
 
   const router = useRouter()
-  const hashedToken = getStoredToken(router.asPath)
   const [layout, _] = useLocalStorage('preferredLayout', layouts[0])
 
   const { t } = useTranslation()
-  const apiBase = '/api/ty'
+  // 根据当前浏览器 URL 解析所在云盘，得到 apiBase 和剥离挂载前缀的相对路径
+  const { apiBase, relPath, drive } = resolveDrive(router.asPath)
+  const apiBaseTyped = apiBase as '/api/ty' | '/api/od'
 
   const path = queryToPath(query)
+  // 后端 API 使用剥离挂载前缀的相对路径；前端展示用原始 path
+  const backendPath = relPath === '' ? '/' : relPath
+  // hashedToken 用 backendPath+drive 查私密目录 token
+  const hashedToken = getStoredToken(backendPath, drive)
 
-  const { data, error, size, setSize } = useProtectedSWRInfinite(path, apiBase)
+  const { data, error, size, setSize } = useProtectedSWRInfinite(backendPath, apiBaseTyped)
 
   if (error) {
     return (
       <PreviewContainer>
-        {error.status === 401 ? <Auth redirect={path} /> : <FourOhFour errorMsg={JSON.stringify(error.message)} />}
+        {error.status === 401 ? (
+          <Auth redirect={backendPath} drive={drive} />
+        ) : (
+          <FourOhFour errorMsg={JSON.stringify(error.message)} />
+        )}
       </PreviewContainer>
     )
   }
@@ -192,7 +203,31 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
 
   if ('folder' in responses[0]) {
     // Expand list of API returns into flattened file data
-    const folderChildren = [].concat(...responses.map(r => r.folder.value)) as OdFolderObject['value']
+    let folderChildren = [].concat(...responses.map(r => r.folder.value)) as OdFolderObject['value']
+
+    // 在天翼云根目录注入 OneDrive 虚拟文件夹入口
+    // 仅当天翼云挂载在根目录、OneDrive 已启用、且当前是天翼云根目录时注入
+    // 这样点击该虚拟文件夹可自然导航到 /OneDrive（由 getItemPath 拼接得到）
+    if (
+      ONEDRIVE_ENABLED &&
+      drive === 'ty' &&
+      backendPath === '/' &&
+      siteConfig.tianyiMountPath === '/'
+    ) {
+      const odFolderName = siteConfig.onedriveMountPath.split('/').pop() || 'OneDrive'
+      // 避免与天翼云根目录下同名真实文件夹冲突
+      const hasConflict = folderChildren.some(c => c.name === odFolderName)
+      if (!hasConflict) {
+        const virtualOdFolder: OdFolderChildren = {
+          id: VIRTUAL_ONEDRIVE_FOLDER_ID,
+          name: odFolderName,
+          size: 0,
+          lastModifiedDateTime: new Date().toISOString(),
+          folder: { childCount: 0, view: { sortBy: 'name', sortOrder: 'ascending', viewType: 'thumbnails' } },
+        }
+        folderChildren = [virtualOdFolder, ...folderChildren]
+      }
+    }
 
     // Find README.md file to render
     const readmeFile = folderChildren.find(c => c.name.toLowerCase() === 'readme.md')
@@ -231,13 +266,13 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
 
     // Selected file download
     const handleSelectedDownload = () => {
-      const folderName = path.substring(path.lastIndexOf('/') + 1)
+      const folderName = backendPath.substring(backendPath.lastIndexOf('/') + 1)
       const folder = folderName ? decodeURIComponent(folderName) : undefined
       const files = getFiles()
         .filter(c => selected[c.id])
         .map(c => ({
           name: c.name,
-          url: `${apiBase}/raw/?path=${path}/${encodeURIComponent(c.name)}${hashedToken ? `&odpt=${hashedToken}` : ''}`,
+          url: `${apiBaseTyped}/raw/?path=${backendPath}/${encodeURIComponent(c.name)}${hashedToken ? `&odpt=${hashedToken}` : ''}`,
         }))
 
       if (files.length == 1) {
@@ -271,15 +306,16 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
         .filter(c => selected[c.id])
         .map(
           c =>
-            `${baseUrl}/api/raw/?path=${path}/${encodeURIComponent(c.name)}${hashedToken ? `&odpt=${hashedToken}` : ''}`
+            `${baseUrl}${apiBaseTyped}/raw/?path=${backendPath}/${encodeURIComponent(c.name)}${hashedToken ? `&odpt=${hashedToken}` : ''}`
         )
         .join('\n')
     }
 
     // Folder recursive download
-    const handleFolderDownload = (path: string, id: string, name?: string) => () => {
+    // folderPath 为剥离挂载前缀的后端路径（由布局组件传入）
+    const handleFolderDownload = (folderPath: string, id: string, name?: string) => () => {
       const files = (async function* () {
-        for await (const { meta: c, path: p, isFolder, error } of traverseFolder(path)) {
+        for await (const { meta: c, path: p, isFolder, error } of traverseFolder(folderPath, apiBaseTyped)) {
           if (error) {
             toast.error(
               t('Failed to download folder {{path}}: {{status}} {{message}} Skipped it to continue.', {
@@ -290,10 +326,10 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
             )
             continue
           }
-          const hashedTokenForPath = getStoredToken(p)
+          const hashedTokenForPath = getStoredToken(p, drive)
           yield {
             name: c?.name,
-            url: `${apiBase}/raw/?path=${p}${hashedTokenForPath ? `&odpt=${hashedTokenForPath}` : ''}`,
+            url: `${apiBaseTyped}/raw/?path=${p}${hashedTokenForPath ? `&odpt=${hashedTokenForPath}` : ''}`,
             path: p,
             isFolder,
           }
@@ -307,7 +343,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
         toastId,
         router,
         files,
-        basePath: path,
+        basePath: folderPath,
         folder: name,
       })
         .then(() => {
@@ -321,9 +357,15 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
     }
 
     // Folder layout component props
+    // path: 浏览器路径（带挂载前缀），用于导航 Link 和复制浏览器 permalink
+    // backendPath: 后端 API 路径（不带挂载前缀），用于 raw URL / thumbnail / getStoredToken / handleFolderDownload
+    // apiBase / drive: 用于布局组件内部构造 API 路径和查私密目录 token
     const folderProps = {
       toast,
       path,
+      backendPath,
+      apiBase: apiBaseTyped,
+      drive,
       folderChildren,
       selected,
       toggleItemSelected,
@@ -379,7 +421,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
 
         {readmeFile && (
           <div className="mt-4">
-            <MarkdownPreview file={readmeFile} path={path} standalone={false} />
+            <MarkdownPreview file={readmeFile} path={backendPath} standalone={false} />
           </div>
         )}
       </>
@@ -402,7 +444,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
           return <CodePreview file={file} />
 
         case preview.markdown:
-          return <MarkdownPreview file={file} path={path} />
+          return <MarkdownPreview file={file} path={backendPath} />
 
         case preview.video:
           return <VideoPreview file={file} />

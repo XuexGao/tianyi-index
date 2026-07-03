@@ -11,6 +11,7 @@ import { useAsync } from 'react-async-hook'
 import { useClipboard } from 'use-clipboard-copy'
 
 import { getBaseUrl } from '../../utils/getBaseUrl'
+import { resolveDrive } from '../../utils/driveResolver'
 import { getExtension } from '../../utils/getFileIcon'
 import { getStoredToken } from '../../utils/protectedRouteHandler'
 
@@ -72,16 +73,18 @@ const VideoPlayer: FC<{
 
 const VideoPreview: FC<{ file: OdFileObject }> = ({ file }) => {
   const { asPath } = useRouter()
-  const hashedToken = getStoredToken(asPath)
+  const { apiBase, relPath, drive } = resolveDrive(asPath)
+  const backendPath = relPath === '' ? '/' : relPath
+  const hashedToken = getStoredToken(backendPath, drive)
   const clipboard = useClipboard()
 
   const [menuOpen, setMenuOpen] = useState(false)
   const { t } = useTranslation()
 
   const thumbnail = '' // 天翼云暂不支持缩略图
-  const vtt = `${asPath.substring(0, asPath.lastIndexOf('.'))}.vtt`
-  const subtitle = `/api/raw/?path=${vtt}${hashedToken ? `&odpt=${hashedToken}` : ''}`
-  const videoUrl = `/api/raw/?path=${asPath}${hashedToken ? `&odpt=${hashedToken}` : ''}`
+  const vtt = `${backendPath.substring(0, backendPath.lastIndexOf('.'))}.vtt`
+  const subtitle = `${apiBase}/raw/?path=${vtt}${hashedToken ? `&odpt=${hashedToken}` : ''}`
+  const videoUrl = `${apiBase}/raw/?path=${backendPath}${hashedToken ? `&odpt=${hashedToken}` : ''}`
 
   const isFlv = getExtension(file.name) === 'flv'
   const {
@@ -96,7 +99,13 @@ const VideoPreview: FC<{ file: OdFileObject }> = ({ file }) => {
 
   return (
     <>
-      <CustomEmbedLinkMenu path={asPath} menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
+      <CustomEmbedLinkMenu
+        backendPath={backendPath}
+        apiBase={apiBase}
+        drive={drive}
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+      />
       <PreviewContainer>
         {error ? (
           <FourOhFour errorMsg={error.message} />
@@ -126,7 +135,7 @@ const VideoPreview: FC<{ file: OdFileObject }> = ({ file }) => {
           />
           <DownloadButton
             onClickCallback={() => {
-              clipboard.copy(`${getBaseUrl()}/api/raw/?path=${asPath}${hashedToken ? `&odpt=${hashedToken}` : ''}`)
+              clipboard.copy(`${getBaseUrl()}${apiBase}/raw/?path=${backendPath}${hashedToken ? `&odpt=${hashedToken}` : ''}`)
               toast.success(t('Copied direct link to clipboard.'))
             }}
             btnColor="pink"

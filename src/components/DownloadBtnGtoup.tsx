@@ -10,6 +10,7 @@ import { useRouter } from 'next/router'
 
 import { getBaseUrl } from '../utils/getBaseUrl'
 import { getStoredToken } from '../utils/protectedRouteHandler'
+import { resolveDrive } from '../utils/driveResolver'
 import CustomEmbedLinkMenu from './CustomEmbedLinkMenu'
 
 const btnStyleMap = (btnColor?: string) => {
@@ -64,7 +65,10 @@ export const DownloadButton = ({
 
 const DownloadButtonGroup = () => {
   const { asPath } = useRouter()
-  const hashedToken = getStoredToken(asPath)
+  // 用 resolveDrive 拿到剥离挂载前缀的后端路径和云盘类型
+  const { apiBase, relPath, drive } = resolveDrive(asPath)
+  const backendPath = relPath === '' ? '/' : relPath
+  const hashedToken = getStoredToken(backendPath, drive)
 
   const clipboard = useClipboard()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -73,10 +77,16 @@ const DownloadButtonGroup = () => {
 
   return (
     <>
-      <CustomEmbedLinkMenu menuOpen={menuOpen} setMenuOpen={setMenuOpen} path={asPath} />
+      <CustomEmbedLinkMenu
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        backendPath={backendPath}
+        apiBase={apiBase}
+        drive={drive}
+      />
       <div className="flex flex-wrap justify-center gap-2">
         <DownloadButton
-          onClickCallback={() => window.open(`/api/raw/?path=${asPath}${hashedToken ? `&odpt=${hashedToken}` : ''}`)}
+          onClickCallback={() => window.open(`${apiBase}/raw/?path=${backendPath}${hashedToken ? `&odpt=${hashedToken}` : ''}`)}
           btnColor="blue"
           btnText={t('Download')}
           btnIcon="file-download"
@@ -84,7 +94,7 @@ const DownloadButtonGroup = () => {
         />
         <DownloadButton
           onClickCallback={() => {
-            clipboard.copy(`${getBaseUrl()}/api/raw/?path=${asPath}${hashedToken ? `&odpt=${hashedToken}` : ''}`)
+            clipboard.copy(`${getBaseUrl()}${apiBase}/raw/?path=${backendPath}${hashedToken ? `&odpt=${hashedToken}` : ''}`)
             toast.success(t('Copied direct link to clipboard.'))
           }}
           btnColor="pink"

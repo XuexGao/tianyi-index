@@ -1,4 +1,5 @@
 import { useRouter } from 'next/router'
+import { resolveDrive } from '../../utils/driveResolver'
 import { useTranslation } from 'next-i18next'
 
 import FourOhFour from '../FourOhFour'
@@ -9,9 +10,11 @@ import { DownloadBtnContainer, PreviewContainer } from './Containers'
 
 const TextPreview = ({ file }) => {
   const { asPath } = useRouter()
+  const { apiBase, relPath } = resolveDrive(asPath)
+  const backendPath = relPath === '' ? '/' : relPath
   const { t } = useTranslation()
 
-  const { response: content, error, validating } = useFileContent(`/api/raw/?path=${asPath}`, asPath)
+  const { response: content, error, validating } = useFileContent(`${apiBase}/raw/?path=${backendPath}`, backendPath)
   if (error) {
     return (
       <PreviewContainer>

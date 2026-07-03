@@ -5,7 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useClipboard } from 'use-clipboard-copy'
 
 import { getBaseUrl } from '../utils/getBaseUrl'
-import { getStoredToken } from '../utils/protectedRouteHandler'
+import { getStoredToken, Drive } from '../utils/protectedRouteHandler'
 import { getReadablePath } from '../utils/getReadablePath'
 
 function LinkContainer({ title, value }: { title: string; value: string }) {
@@ -27,23 +27,27 @@ function LinkContainer({ title, value }: { title: string; value: string }) {
 }
 
 export default function CustomEmbedLinkMenu({
-  path,
+  backendPath,
+  apiBase,
+  drive,
   menuOpen,
   setMenuOpen,
 }: {
-  path: string
+  backendPath: string
+  apiBase: string
+  drive: Drive
   menuOpen: boolean
   setMenuOpen: Dispatch<SetStateAction<boolean>>
 }) {
   const { t } = useTranslation()
 
-  const hashedToken = getStoredToken(path)
+  const hashedToken = getStoredToken(backendPath, drive)
 
   // Focus on input automatically when menu modal opens
   const focusInputRef = useRef<HTMLInputElement>(null)
   const closeMenu = () => setMenuOpen(false)
 
-  const readablePath = getReadablePath(path)
+  const readablePath = getReadablePath(backendPath)
   const filename = readablePath.substring(readablePath.lastIndexOf('/') + 1)
   const [name, setName] = useState(filename)
 
@@ -105,11 +109,11 @@ export default function CustomEmbedLinkMenu({
 
                 <LinkContainer
                   title={t('Default')}
-                  value={`${getBaseUrl()}/api/raw/?path=${readablePath}${hashedToken ? `&odpt=${hashedToken}` : ''}`}
+                  value={`${getBaseUrl()}${apiBase}/raw/?path=${readablePath}${hashedToken ? `&odpt=${hashedToken}` : ''}`}
                 />
                 <LinkContainer
                   title={t('URL encoded')}
-                  value={`${getBaseUrl()}/api/raw/?path=${path}${hashedToken ? `&odpt=${hashedToken}` : ''}`}
+                  value={`${getBaseUrl()}${apiBase}/raw/?path=${backendPath}${hashedToken ? `&odpt=${hashedToken}` : ''}`}
                 />
               </div>
             </div>

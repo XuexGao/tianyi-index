@@ -9,13 +9,24 @@ import { useTranslation } from 'next-i18next'
 import { getBaseUrl } from '../utils/getBaseUrl'
 import { formatModifiedDateTime } from '../utils/fileDetails'
 import { Checkbox, ChildIcon, ChildName, Downloading } from './FileListing'
-import { getStoredToken } from '../utils/protectedRouteHandler'
+import { getStoredToken, Drive } from '../utils/protectedRouteHandler'
+import { VIRTUAL_ONEDRIVE_FOLDER_ID } from '../utils/driveResolver'
 
-const GridItem = ({ c, path }: { c: OdFolderChildren; path: string }) => {
+const GridItem = ({
+  c,
+  backendPath,
+  apiBase,
+  drive,
+}: {
+  c: OdFolderChildren
+  backendPath: string
+  apiBase: string
+  drive: Drive
+}) => {
   // We use the generated medium thumbnail for rendering preview images (excluding folders)
-  const hashedToken = getStoredToken(path)
+  const hashedToken = getStoredToken(backendPath, drive)
   const thumbnailUrl =
-    'folder' in c ? null : `/api/thumbnail/?path=${path}&size=medium${hashedToken ? `&odpt=${hashedToken}` : ''}`
+    'folder' in c ? null : `${apiBase}/thumbnail/?path=${backendPath}&size=medium${hashedToken ? `&odpt=${hashedToken}` : ''}`
 
   // Some thumbnails are broken, so we check for onerror event in the image component
   const [brokenThumbnail, setBrokenThumbnail] = useState(false)
@@ -35,7 +46,7 @@ const GridItem = ({ c, path }: { c: OdFolderChildren; path: string }) => {
           <div className="relative flex h-full w-full items-center justify-center rounded-lg">
             <ChildIcon child={c} />
             <span className="absolute bottom-0 right-0 m-1 font-medium text-gray-700 dark:text-gray-500">
-              {c.folder?.childCount}
+              {c.id === VIRTUAL_ONEDRIVE_FOLDER_ID ? null : c.folder?.childCount}
             </span>
           </div>
         )}
@@ -56,6 +67,9 @@ const GridItem = ({ c, path }: { c: OdFolderChildren; path: string }) => {
 
 const FolderGridLayout = ({
   path,
+  backendPath,
+  apiBase,
+  drive,
   folderChildren,
   selected,
   toggleItemSelected,
@@ -69,12 +83,16 @@ const FolderGridLayout = ({
   toast,
 }) => {
   const clipboard = useClipboard()
-  const hashedToken = getStoredToken(path)
+  // getStoredToken 用后端路径 + drive 查私密目录 token
+  const hashedToken = getStoredToken(backendPath, drive)
 
   const { t } = useTranslation()
 
-  // Get item path from item name
+  // Get item path from item name（带挂载前缀，用于导航 Link 和复制浏览器 permalink）
   const getItemPath = (name: string) => `${path === '/' ? '' : path}/${encodeURIComponent(name)}`
+  // 后端路径版本（不带挂载前缀，用于 raw URL / thumbnail / handleFolderDownload）
+  const getBackendItemPath = (name: string) =>
+    `${backendPath === '/' ? '' : backendPath}/${encodeURIComponent(name)}`
 
   return (
     <div className="od-files-container rounded bg-white shadow-sm dark:bg-gray-900 dark:text-gray-100">
@@ -121,29 +139,31 @@ const FolderGridLayout = ({
           >
             <div className="absolute top-0 right-0 z-10 m-1 rounded bg-white/50 py-0.5 opacity-0 transition-all duration-100 group-hover:opacity-100 dark:bg-gray-900/50">
               {c.folder ? (
-                <div>
-                  <span
-                    title={t('Copy folder permalink')}
-                    className="cursor-pointer rounded px-1.5 py-1 hover:bg-gray-300 dark:hover:bg-gray-600"
-                    onClick={() => {
-                      clipboard.copy(`${getBaseUrl()}${getItemPath(c.name)}`)
-                      toast(t('Copied folder permalink.'), { icon: '👌' })
-                    }}
-                  >
-                    <FontAwesomeIcon icon={['far', 'copy']} />
-                  </span>
-                  {folderGenerating[c.id] ? (
-                    <Downloading title={t('Downloading folder, refresh page to cancel')} style="px-1.5 py-1" />
-                  ) : (
+                c.id === VIRTUAL_ONEDRIVE_FOLDER_ID ? null : (
+                  <div>
                     <span
-                      title={t('Download folder')}
+                      title={t('Copy folder permalink')}
                       className="cursor-pointer rounded px-1.5 py-1 hover:bg-gray-300 dark:hover:bg-gray-600"
-                      onClick={handleFolderDownload(getItemPath(c.name), c.id, c.name)}
+                      onClick={() => {
+                        clipboard.copy(`${getBaseUrl()}${getItemPath(c.name)}`)
+                        toast(t('Copied folder permalink.'), { icon: '👌' })
+                      }}
                     >
-                      <FontAwesomeIcon icon={['far', 'arrow-alt-circle-down']} />
+                      <FontAwesomeIcon icon={['far', 'copy']} />
                     </span>
-                  )}
-                </div>
+                    {folderGenerating[c.id] ? (
+                      <Downloading title={t('Downloading folder, refresh page to cancel')} style="px-1.5 py-1" />
+                    ) : (
+                      <span
+                        title={t('Download folder')}
+                        className="cursor-pointer rounded px-1.5 py-1 hover:bg-gray-300 dark:hover:bg-gray-600"
+                        onClick={handleFolderDownload(getBackendItemPath(c.name), c.id, c.name)}
+                      >
+                        <FontAwesomeIcon icon={['far', 'arrow-alt-circle-down']} />
+                      </span>
+                    )}
+                  </div>
+                )
               ) : (
                 <div>
                   <span
@@ -151,7 +171,7 @@ const FolderGridLayout = ({
                     className="cursor-pointer rounded px-1.5 py-1 hover:bg-gray-300 dark:hover:bg-gray-600"
                     onClick={() => {
                       clipboard.copy(
-                        `${getBaseUrl()}/api/raw/?path=${getItemPath(c.name)}${
+                        `${getBaseUrl()}${apiBase}/raw/?path=${getBackendItemPath(c.name)}${
                           hashedToken ? `&odpt=${hashedToken}` : ''
                         }`
                       )
@@ -163,7 +183,7 @@ const FolderGridLayout = ({
                   <a
                     title={t('Download file')}
                     className="cursor-pointer rounded px-1.5 py-1 hover:bg-gray-300 dark:hover:bg-gray-600"
-                    href={`${getBaseUrl()}/api/raw/?path=${getItemPath(c.name)}${
+                    href={`${getBaseUrl()}${apiBase}/raw/?path=${getBackendItemPath(c.name)}${
                       hashedToken ? `&odpt=${hashedToken}` : ''
                     }`}
                   >
@@ -188,7 +208,7 @@ const FolderGridLayout = ({
             </div>
 
             <Link href={getItemPath(c.name)} passHref>
-              <GridItem c={c} path={getItemPath(c.name)} />
+              <GridItem c={c} backendPath={getBackendItemPath(c.name)} apiBase={apiBase} drive={drive} />
             </Link>
           </div>
         ))}

@@ -11,6 +11,8 @@ import { tomorrowNight } from 'react-syntax-highlighter/dist/cjs/styles/hljs'
 import 'katex/dist/katex.min.css'
 
 import useFileContent from '../../utils/fetchOnMount'
+import { useRouter } from 'next/router'
+import { getApiBase } from '../../utils/driveResolver'
 import FourOhFour from '../FourOhFour'
 import Loading from '../Loading'
 import DownloadButtonGroup from '../DownloadBtnGtoup'
@@ -23,8 +25,9 @@ const MarkdownPreview: FC<{
 }> = ({ file, path, standalone = true }) => {
   // The parent folder of the markdown file, which is also the relative image folder
   const parentPath = standalone ? path.substring(0, path.lastIndexOf('/')) : path
+  const apiBase = getApiBase(useRouter().asPath)
 
-  const { response: content, error, validating } = useFileContent(`/api/raw/?path=${parentPath}/${file.name}`, path)
+  const { response: content, error, validating } = useFileContent(`${apiBase}/raw/?path=${parentPath}/${file.name}`, path)
   const { t } = useTranslation()
 
   // Check if the image is relative path instead of a absolute url
@@ -51,7 +54,7 @@ const MarkdownPreview: FC<{
         // eslint-disable-next-line @next/next/no-img-element
         <img
           alt={alt}
-          src={isUrlAbsolute(src as string) ? src : `/api/?path=${parentPath}/${src}&raw=true`}
+          src={isUrlAbsolute(src as string) ? src : `${apiBase}/?path=${parentPath}/${src}&raw=true`}
           title={title}
           width={width}
           height={height}

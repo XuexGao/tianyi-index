@@ -2,6 +2,7 @@ import { FC } from 'react'
 import { useTranslation } from 'next-i18next'
 import useSystemTheme from 'react-use-system-theme'
 import { useRouter } from 'next/router'
+import { resolveDrive } from '../../utils/driveResolver'
 
 import { LightAsync as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { tomorrowNightEighties, tomorrow } from 'react-syntax-highlighter/dist/cjs/styles/hljs'
@@ -15,7 +16,9 @@ import { DownloadBtnContainer, PreviewContainer } from './Containers'
 
 const CodePreview: FC<{ file: any }> = ({ file }) => {
   const { asPath } = useRouter()
-  const { response: content, error, validating } = useFileContent(`/api/raw/?path=${asPath}`, asPath)
+  const { apiBase, relPath } = resolveDrive(asPath)
+  const backendPath = relPath === '' ? '/' : relPath
+  const { response: content, error, validating } = useFileContent(`${apiBase}/raw/?path=${backendPath}`, backendPath)
 
   const theme = useSystemTheme('dark')
   const { t } = useTranslation()

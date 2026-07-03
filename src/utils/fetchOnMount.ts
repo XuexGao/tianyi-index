@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { useEffect, useState } from 'react'
-import { getStoredToken } from './protectedRouteHandler'
+import { getStoredToken, Drive } from './protectedRouteHandler'
 
 // 模块级缓存，整个应用生命周期内有效，切换文件夹再回来无需重新请求
 const contentCache = new Map<string, string>()
@@ -28,7 +28,9 @@ export default function useFileContent(
     }
 
     setValidating(true)
-    const hashedToken = getStoredToken(path)
+    // fetchUrl 形如 `${apiBase}/raw/?path=...`，据此推导云盘类型
+    const drive: Drive = fetchUrl.startsWith('/api/od') ? 'od' : 'ty'
+    const hashedToken = getStoredToken(path, drive)
     const url = fetchUrl + (hashedToken ? `&odpt=${hashedToken}` : '')
 
     axios

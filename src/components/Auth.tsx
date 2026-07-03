@@ -5,11 +5,11 @@ import { useRouter } from 'next/router'
 import { FC, useState } from 'react'
 import { useTranslation } from 'next-i18next'
 
-import { matchProtectedRoute } from '../utils/protectedRouteHandler'
+import { matchProtectedRoute, Drive } from '../utils/protectedRouteHandler'
 import useLocalStorage from '../utils/useLocalStorage'
 
-const Auth: FC<{ redirect: string }> = ({ redirect }) => {
-  const authTokenPath = matchProtectedRoute(redirect)
+const Auth: FC<{ redirect: string; drive?: Drive }> = ({ redirect, drive = 'ty' }) => {
+  const authTokenPath = matchProtectedRoute(redirect, drive)
 
   const router = useRouter()
   const [token, setToken] = useState('')

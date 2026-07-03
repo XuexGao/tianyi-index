@@ -11,6 +11,7 @@ import { formatModifiedDateTime, formatModifiedDateTimeCompact } from '../utils/
 
 import { Downloading, Checkbox, ChildIcon, ChildName } from './FileListing'
 import { getStoredToken } from '../utils/protectedRouteHandler'
+import { VIRTUAL_ONEDRIVE_FOLDER_ID } from '../utils/driveResolver'
 
 const FileListItem: FC<{ fileContent: OdFolderChildren }> = ({ fileContent: c }) => {
   return (
@@ -32,6 +33,9 @@ const FileListItem: FC<{ fileContent: OdFolderChildren }> = ({ fileContent: c })
 
 const FolderListLayout = ({
   path,
+  backendPath,
+  apiBase,
+  drive,
   folderChildren,
   selected,
   toggleItemSelected,
@@ -45,12 +49,15 @@ const FolderListLayout = ({
   toast,
 }) => {
   const clipboard = useClipboard()
-  const hashedToken = getStoredToken(path)
+  // getStoredToken 用后端路径 + drive 查私密目录 token
+  const hashedToken = getStoredToken(backendPath, drive)
 
   const { t } = useTranslation()
 
-  // Get item path from item name
+  // Get item path from item name（带挂载前缀，用于导航 Link 和复制浏览器 permalink）
   const getItemPath = (name: string) => `${path === '/' ? '' : path}/${encodeURIComponent(name)}`
+  // 后端路径版本（不带挂载前缀，用于 raw URL / handleFolderDownload）
+  const getBackendItemPath = (name: string) => `${backendPath === '/' ? '' : backendPath}/${encodeURIComponent(name)}`
 
   return (
     <div className="od-files-container rounded bg-white shadow-sm dark:bg-gray-900 dark:text-gray-100">
@@ -114,32 +121,36 @@ const FolderListLayout = ({
           </Link>
 
           {c.folder ? (
-            <div className="hidden pl-5 pr-1.5 py-1.5 text-gray-700 dark:text-gray-400 md:flex">
-              <span
-                title={t('Copy folder permalink')}
-                className="cursor-pointer rounded px-1.5 py-1 hover:bg-gray-300 dark:hover:bg-gray-600"
-                onClick={() => {
-                  clipboard.copy(`${getBaseUrl()}${`${path === '/' ? '' : path}/${encodeURIComponent(c.name)}`}`)
-                  toast(t('Copied folder permalink.'), { icon: '👌' })
-                }}
-              >
-                <FontAwesomeIcon icon={['far', 'copy']} />
-              </span>
-              {folderGenerating[c.id] ? (
-                <Downloading title={t('Downloading folder, refresh page to cancel')} style="px-1.5 py-1" />
-              ) : (
+            c.id === VIRTUAL_ONEDRIVE_FOLDER_ID ? (
+              <div className="hidden md:flex" />
+            ) : (
+              <div className="hidden pl-5 pr-1.5 py-1.5 text-gray-700 dark:text-gray-400 md:flex">
                 <span
-                  title={t('Download folder')}
+                  title={t('Copy folder permalink')}
                   className="cursor-pointer rounded px-1.5 py-1 hover:bg-gray-300 dark:hover:bg-gray-600"
                   onClick={() => {
-                    const p = `${path === '/' ? '' : path}/${encodeURIComponent(c.name)}`
-                    handleFolderDownload(p, c.id, c.name)()
+                    clipboard.copy(`${getBaseUrl()}${`${path === '/' ? '' : path}/${encodeURIComponent(c.name)}`}`)
+                    toast(t('Copied folder permalink.'), { icon: '👌' })
                   }}
                 >
-                  <FontAwesomeIcon icon={['far', 'arrow-alt-circle-down']} />
+                  <FontAwesomeIcon icon={['far', 'copy']} />
                 </span>
-              )}
-            </div>
+                {folderGenerating[c.id] ? (
+                  <Downloading title={t('Downloading folder, refresh page to cancel')} style="px-1.5 py-1" />
+                ) : (
+                  <span
+                    title={t('Download folder')}
+                    className="cursor-pointer rounded px-1.5 py-1 hover:bg-gray-300 dark:hover:bg-gray-600"
+                    onClick={() => {
+                      const p = getBackendItemPath(c.name)
+                      handleFolderDownload(p, c.id, c.name)()
+                    }}
+                  >
+                    <FontAwesomeIcon icon={['far', 'arrow-alt-circle-down']} />
+                  </span>
+                )}
+              </div>
+            )
           ) : (
             <div className="hidden pl-5 pr-1.5 py-1.5 text-gray-700 dark:text-gray-400 md:flex">
               <span
@@ -147,7 +158,7 @@ const FolderListLayout = ({
                 className="cursor-pointer rounded px-1.5 py-1 hover:bg-gray-300 dark:hover:bg-gray-600"
                 onClick={() => {
                   clipboard.copy(
-                    `${getBaseUrl()}/api/raw/?path=${getItemPath(c.name)}${hashedToken ? `&odpt=${hashedToken}` : ''}`
+                    `${getBaseUrl()}${apiBase}/raw/?path=${getBackendItemPath(c.name)}${hashedToken ? `&odpt=${hashedToken}` : ''}`
                   )
                   toast.success(t('Copied raw file permalink.'))
                 }}
@@ -157,7 +168,7 @@ const FolderListLayout = ({
               <a
                 title={t('Download file')}
                 className="cursor-pointer rounded px-1.5 py-1 hover:bg-gray-300 dark:hover:bg-gray-600"
-                href={`/api/raw/?path=${getItemPath(c.name)}${hashedToken ? `&odpt=${hashedToken}` : ''}`}
+                href={`${apiBase}/raw/?path=${getBackendItemPath(c.name)}${hashedToken ? `&odpt=${hashedToken}` : ''}`}
               >
                 <FontAwesomeIcon icon={['far', 'arrow-alt-circle-down']} />
               </a>

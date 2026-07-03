@@ -3,7 +3,7 @@ import useSWRInfinite from 'swr/infinite'
 
 import type { OdAPIResponse } from '../types'
 
-import { getStoredToken } from './protectedRouteHandler'
+import { getStoredToken, driveFromApiBase } from './protectedRouteHandler'
 
 // Common axios fetch function for use with useSWR
 export async function fetcher([url, token]: [url: string, token?: string]): Promise<any> {
@@ -26,7 +26,7 @@ export async function fetcher([url, token]: [url: string, token?: string]): Prom
  * @returns useSWRInfinite API
  */
 export function useProtectedSWRInfinite(path: string = '', apiBase: string = '/api/ty') {
-  const hashedToken = getStoredToken(path)
+  const hashedToken = getStoredToken(path, driveFromApiBase(apiBase))
 
   function getNextKey(pageIndex: number, previousPageData: OdAPIResponse): (string | null)[] | null {
     if (previousPageData && !previousPageData.folder) return null
