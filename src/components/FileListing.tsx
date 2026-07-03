@@ -229,8 +229,10 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
       }
     }
 
-    // Find README.md file to render
-    const readmeFile = folderChildren.find(c => c.name.toLowerCase() === 'readme.md')
+    // Find README.md / READ.md files to render（两个云盘都支持，都存在时都显示）
+    const readmeFiles = folderChildren.filter(
+      c => c.name.toLowerCase() === 'readme.md' || c.name.toLowerCase() === 'read.md'
+    )
 
     // Filtered file list helper
     const getFiles = () => folderChildren.filter(c => !c.folder && c.name !== '.password')
@@ -419,11 +421,11 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
           </div>
         )}
 
-        {readmeFile && (
-          <div className="mt-4">
-            <MarkdownPreview file={readmeFile} path={backendPath} standalone={false} />
+        {readmeFiles.map(f => (
+          <div className="mt-4" key={f.id}>
+            <MarkdownPreview file={f} path={backendPath} standalone={false} />
           </div>
-        )}
+        ))}
       </>
     )
   }
