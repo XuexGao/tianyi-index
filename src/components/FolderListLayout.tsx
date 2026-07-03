@@ -16,18 +16,19 @@ import { VIRTUAL_ONEDRIVE_FOLDER_ID } from '../utils/driveResolver'
 const FileListItem: FC<{ fileContent: OdFolderChildren; showSize?: boolean }> = ({ fileContent: c, showSize }) => {
   return (
     <div className="grid cursor-pointer grid-cols-10 items-center space-x-2 px-3 py-2.5">
-      <div className={`${showSize ? 'col-span-5' : 'col-span-7 md:col-span-6'} flex items-center space-x-2 truncate`} title={c.name}>
+      <div className={`${showSize ? 'col-span-7 md:col-span-5' : 'col-span-7 md:col-span-6'} flex items-center space-x-2 truncate`} title={c.name}>
         <div className="w-5 flex-shrink-0 text-center">
           <ChildIcon child={c} />
         </div>
         <ChildName name={c.name} folder={Boolean(c.folder)} />
       </div>
       {/* 手机端：右对齐显示紧凑时间（年份+时间，省略月日）；桌面端：左对齐显示完整时间 */}
-      <div className={`${showSize ? 'col-span-2 md:col-span-3' : 'col-span-3 md:col-span-4'} flex-shrink-0 truncate text-right font-mono text-sm text-gray-700 dark:text-gray-500 md:text-left`}>
+      {/* OneDrive 手机端隐藏时间列，只显示大小 */}
+      <div className={`${showSize ? 'hidden md:block md:col-span-3' : 'col-span-3 md:col-span-4'} flex-shrink-0 truncate text-right font-mono text-sm text-gray-700 dark:text-gray-500 md:text-left`}>
         <span className="md:hidden">{formatModifiedDateTimeCompact(c.lastModifiedDateTime)}</span>
         <span className="hidden md:inline">{formatModifiedDateTime(c.lastModifiedDateTime)}</span>
       </div>
-      {/* OneDrive 显示文件大小列；天翼云不显示 */}
+      {/* OneDrive 显示文件大小列；天翼云不显示。手机端右对齐 */}
       {showSize && (
         <div className="col-span-3 flex-shrink-0 truncate text-right font-mono text-sm text-gray-700 dark:text-gray-500 md:col-span-2">
           {humanFileSize(c.size)}
@@ -71,11 +72,12 @@ const FolderListLayout = ({
   return (
     <div className="od-files-container rounded bg-white shadow-sm dark:bg-gray-900 dark:text-gray-100">
       <div className="grid grid-cols-12 items-center space-x-2 border-b border-gray-900/10 px-3 dark:border-gray-500/30">
-        <div className={`${showSize ? 'col-span-6 md:col-span-5' : 'col-span-7 md:col-span-6'} py-2 text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300`}>
+        <div className={`${showSize ? 'col-span-9 md:col-span-5' : 'col-span-7 md:col-span-6'} py-2 text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300`}>
           {t('Name')}
         </div>
         {/* 手机端右对齐、桌面端左对齐，与数据行 Last Modified 列对齐 */}
-        <div className={`${showSize ? 'col-span-3 md:col-span-3' : 'col-span-5 md:col-span-4'} text-right text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300 md:text-left`}>
+        {/* OneDrive 手机端隐藏时间列，只显示大小 */}
+        <div className={`${showSize ? 'hidden md:block md:col-span-3' : 'col-span-5 md:col-span-4'} text-right text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300 md:text-left`}>
           {t('Last Modified')}
         </div>
         {showSize && (
