@@ -98,11 +98,14 @@ const MarkdownPreview: FC<{
     )
   }
   if (validating) {
+    // 加载时不渲染 PreviewContainer（半透明白底毛玻璃块），
+    // 避免加载期间在文件列表下方出现突兀的白色块/分界线。
+    // 只显示一个轻量 Loading，加载完成后再渲染完整容器。
     return (
       <>
-        <PreviewContainer>
+        <div className="py-4 text-center text-sm text-gray-400 dark:text-gray-500">
           <Loading loadingText={t('Loading file content...')} />
-        </PreviewContainer>
+        </div>
         {standalone && (
           <DownloadBtnContainer>
             <DownloadButtonGroup />
