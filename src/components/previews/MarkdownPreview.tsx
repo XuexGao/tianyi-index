@@ -35,16 +35,17 @@ const MarkdownPreview: FC<{
   // expanding：数据到了，容器 max-height 从加载态高度平滑展开，Loading 淡出，内容淡入
   // done：正常显示，解除 max-height 限制
   const [phase, setPhase] = useState<'loading' | 'expanding' | 'done'>('loading')
-  const [contentVisible, setContentVisible] = useState(false)
   // maxH=null 时不限制高度；loading 测量后设为实际高度作为过渡起点
   const [maxH, setMaxH] = useState<number | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  // 标记本次加载是否已完成过渡，避免 effect 依赖 phase 导致 cleanup 误清 timer
+  const transitionedRef = useRef(false)
 
   // 新一次加载（validating 变 true）时回到 loading
   useEffect(() => {
     if (validating) {
+      transitionedRef.current = false
       setPhase('loading')
-      setContentVisible(false)
       setMaxH(null)
     }
   }, [validating])
@@ -61,21 +62,19 @@ const MarkdownPreview: FC<{
   }, [phase])
 
   // 数据加载完成，触发 expanding → done
+  // 用 ref 防重复，不把 phase 放进依赖，避免 phase 变化时 cleanup 清掉 timer
   useEffect(() => {
-    if (!validating && phase === 'loading') {
+    if (!validating && !transitionedRef.current) {
+      transitionedRef.current = true
       setPhase('expanding')
       setMaxH(5000) // 展开到一个足够大的值，实际高度由内容撑开
-      const t1 = setTimeout(() => setContentVisible(true), 150)
-      const t2 = setTimeout(() => {
+      const t = setTimeout(() => {
         setPhase('done')
         setMaxH(null) // 解除限制，避免超长 markdown 被裁
       }, 800)
-      return () => {
-        clearTimeout(t1)
-        clearTimeout(t2)
-      }
+      return () => clearTimeout(t)
     }
-  }, [validating, phase])
+  }, [validating])
 
   // Check if the image is relative path instead of a absolute url
   const isUrlAbsolute = (url: string | string[]) => url.indexOf('://') > 0 || url.indexOf('//') === 0
@@ -146,11 +145,12 @@ const MarkdownPreview: FC<{
   }
 
   // markdown 内容渲染（expanding / done 共用）
+  // opacity 直接由 phase 驱动：expanding/done 时可见（配合 0.45s 淡入），loading 不可见
   const markdownContent = (
     <div
       className="markdown-body"
       style={{
-        opacity: contentVisible ? 1 : 0,
+        opacity: phase === 'loading' ? 0 : 1,
         transition: 'opacity 0.45s ease',
       }}
     >
@@ -187,10 +187,11 @@ const MarkdownPreview: FC<{
           transition: 'max-height 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
-        {/* Loading 层：loading 占位撑开容器；expanding 时绝对定位淡出，给内容让出流式高度 */}
+        {/* Loading 层：loading 占位撑开容器；expanding 时绝对定位淡出，给内容让出流式高度
+            文字颜色用 text-gray-700 dark:text-gray-200，与文件列表保持一致 */}
         {phase !== 'done' && (
           <div
-            className={`flex items-center justify-center py-16 text-sm text-gray-400 dark:text-gray-500 ${
+            className={`flex items-center justify-center py-16 text-sm text-gray-700 dark:text-gray-200 ${
               phase === 'expanding' ? 'absolute inset-0' : ''
             }`}
             style={{
