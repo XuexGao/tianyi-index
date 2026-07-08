@@ -52,9 +52,8 @@
 | `NEXT_PUBLIC_PROTECTED_ROUTES` | `/其他文件/文件传输` | 天翼云受密码保护的目录路径，多个用逗号分隔。需在天翼云对应目录下放 `.password` 文件 |
 | `NEXT_PUBLIC_PROTECTED_ROUTES_OD` | （空） | OneDrive 受密码保护的目录路径（相对于 `BASE_DIRECTORY`），多个用逗号分隔 |
 | `NEXT_PUBLIC_EMAIL` | （空） | 联系邮箱，显示在导航栏，格式 `you@example.com` |
-| `NEXT_PUBLIC_UMAMI_BASE_URL` | （空） | Umami 统计服务地址，例如 `https://umami.example.com`。三个 Umami 变量需同时配置才生效 |
-| `NEXT_PUBLIC_UMAMI_WEBSITE_ID` | （空） | Umami 网站 ID |
-| `NEXT_PUBLIC_UMAMI_SHARE_ID` | （空） | Umami 分享 ID，用于读取公开统计接口 |
+
+> **访问统计**：内置基于 Redis 的今日 / 累计访问量统计，复用 `REDIS_URL`，无需额外配置。存储 key 为 `stats:total`（累计）和 `stats:today:YYYY-MM-DD`（当日，次日凌晨自动过期）。底部毛玻璃胶囊条会在每次会话首次进入网站时 +1。
 
 ### 本地开发
 

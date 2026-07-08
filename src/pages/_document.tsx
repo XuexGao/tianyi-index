@@ -27,15 +27,6 @@ class MyDocument extends Document {
           {siteConfig.googleFontLinks.map(link => (
             <link key={link} rel="stylesheet" href={link} />
           ))}
-
-          {/* Umami Analytics */}
-          {process.env.NEXT_PUBLIC_UMAMI_BASE_URL && process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID && (
-            <script
-              defer
-              src={`${process.env.NEXT_PUBLIC_UMAMI_BASE_URL}/script.js`}
-              data-website-id={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}
-            />
-          )}
         </Head>
         <body>
           <Main />

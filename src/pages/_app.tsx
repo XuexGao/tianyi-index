@@ -83,23 +83,16 @@ library.add(
   ...iconList
 )
 
-// Umami 访问统计
-function UmamiFooter() {
+// 内置访问统计（基于 Redis，复用 #umami-footer 的毛玻璃胶囊样式）
+// 计数口径：每次"会话首屏"+1（仅在客户端首次进入网站时 POST 一次，路由切换不计数）
+function StatsFooter() {
   const [entered, setEntered] = useState(false)
 
   useEffect(() => {
-    const shareId   = process.env.NEXT_PUBLIC_UMAMI_SHARE_ID || ''
-    const websiteId = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID || ''
-    const baseUrl   = process.env.NEXT_PUBLIC_UMAMI_BASE_URL || ''
-
-    // 未配置 Umami 环境变量，不执行任何逻辑
-    if (!shareId || !websiteId || !baseUrl) return
-
     // 入口动画：延迟一帧后从底部弹出
     requestAnimationFrame(() => setEntered(true))
 
     function animateValue(el: HTMLElement, end: number) {
-      let start = 0
       const duration = 800
       let startTs: number | null = null
       const step = (ts: number) => {
@@ -112,34 +105,22 @@ function UmamiFooter() {
       window.requestAnimationFrame(step)
     }
 
-    async function fetchStats() {
+    async function recordVisit() {
       try {
-        const tokenRes = await fetch(`${baseUrl}/api/share/${shareId}`)
-        if (!tokenRes.ok) return
-        const { token, websiteId: wid = websiteId } = await tokenRes.json()
-
-        const now = Date.now()
-        const startOfDay = new Date()
-        startOfDay.setHours(0, 0, 0, 0)
-        const tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)
-        const headers = { 'x-umami-share-token': token }
-
-        const [todayRes, totalRes] = await Promise.all([
-          fetch(`${baseUrl}/api/websites/${wid}/stats?startAt=${startOfDay.getTime()}&endAt=${now}&unit=hour&timezone=${tz}&compare=false`, { headers }),
-          fetch(`${baseUrl}/api/websites/${wid}/stats?startAt=0&endAt=${now}&unit=hour&timezone=${tz}&compare=false`, { headers }),
-        ])
-        if (todayRes.ok) {
-          const d = await todayRes.json()
-          const el = document.getElementById('uv-today')
-          if (el) animateValue(el, d.pageviews?.value ?? d.pageviews ?? 0)
-        }
-        if (totalRes.ok) {
-          const d = await totalRes.json()
-          const el = document.getElementById('uv-total')
-          if (el) animateValue(el, d.pageviews?.value ?? d.pageviews ?? 0)
-        }
+        // 用 sessionStorage 保证单次会话只 +1 一次，避免刷新和路由切换重复计数
+        const FLAG = 'stats_recorded'
+        const method = sessionStorage.getItem(FLAG) ? 'GET' : 'POST'
+        const res = await fetch('/api/stats', { method })
+        if (!res.ok) return
+        const json = await res.json()
+        const { today, total } = json?.data || {}
+        const todayEl = document.getElementById('uv-today')
+        const totalEl = document.getElementById('uv-total')
+        if (todayEl && typeof today === 'number') animateValue(todayEl, today)
+        if (totalEl && typeof total === 'number') animateValue(totalEl, total)
+        if (method === 'POST') sessionStorage.setItem(FLAG, '1')
       } catch (e) {
-        console.warn('[umami-footer]', e)
+        console.warn('[stats-footer]', e)
       }
     }
 
@@ -175,14 +156,9 @@ function UmamiFooter() {
       }, { passive: true })
     }
 
-    fetchStats()
+    recordVisit()
     initScrollHide()
   }, [])
-
-  // 没有配置 Umami 环境变量时不渲染底部统计框
-  if (!process.env.NEXT_PUBLIC_UMAMI_SHARE_ID || !process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID || !process.env.NEXT_PUBLIC_UMAMI_BASE_URL) {
-    return null
-  }
 
   return (
     <div id="umami-footer" className={entered ? '' : 'umami-enter'}>
@@ -200,7 +176,7 @@ function MyApp({ Component, pageProps }: AppProps) {
         <img src="https://api.elaina.cat/random/" alt="" />
       </div>
 
-      <UmamiFooter />
+      <StatsFooter />
       <NextNProgress height={1} color="rgb(156, 163, 175, 0.9)" options={{ showSpinner: false }} />
       <Analytics />
       <Component {...pageProps} />
