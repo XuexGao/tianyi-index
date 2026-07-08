@@ -1,4 +1,4 @@
-import { FC, CSSProperties, ReactNode } from 'react'
+import { FC, CSSProperties, ReactNode, useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -14,7 +14,7 @@ import useFileContent from '../../utils/fetchOnMount'
 import { useRouter } from 'next/router'
 import { getApiBase } from '../../utils/driveResolver'
 import FourOhFour from '../FourOhFour'
-import Loading from '../Loading'
+import { LoadingIcon } from '../Loading'
 import DownloadButtonGroup from '../DownloadBtnGtoup'
 import { DownloadBtnContainer, PreviewContainer } from './Containers'
 
@@ -29,6 +29,53 @@ const MarkdownPreview: FC<{
 
   const { response: content, error, validating } = useFileContent(`${apiBase}/raw/?path=${parentPath}/${file.name}`, path)
   const { t } = useTranslation()
+
+  // === 加载过渡动画状态机 ===
+  // loading：显示毛玻璃容器 + Loading 文字（py-16，原来一半）
+  // expanding：数据到了，容器 max-height 从加载态高度平滑展开，Loading 淡出，内容淡入
+  // done：正常显示，解除 max-height 限制
+  const [phase, setPhase] = useState<'loading' | 'expanding' | 'done'>('loading')
+  const [contentVisible, setContentVisible] = useState(false)
+  // maxH=null 时不限制高度；loading 测量后设为实际高度作为过渡起点
+  const [maxH, setMaxH] = useState<number | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // 新一次加载（validating 变 true）时回到 loading
+  useEffect(() => {
+    if (validating) {
+      setPhase('loading')
+      setContentVisible(false)
+      setMaxH(null)
+    }
+  }, [validating])
+
+  // loading 时测量容器实际高度，作为 expanding 阶段 max-height 过渡的起点，
+  // 这样从 loading→expanding 切换瞬间不会有高度跳变。
+  useEffect(() => {
+    if (phase === 'loading' && containerRef.current) {
+      // requestAnimationFrame 确保测量在布局完成后
+      requestAnimationFrame(() => {
+        if (containerRef.current) setMaxH(containerRef.current.scrollHeight)
+      })
+    }
+  }, [phase])
+
+  // 数据加载完成，触发 expanding → done
+  useEffect(() => {
+    if (!validating && phase === 'loading') {
+      setPhase('expanding')
+      setMaxH(5000) // 展开到一个足够大的值，实际高度由内容撑开
+      const t1 = setTimeout(() => setContentVisible(true), 150)
+      const t2 = setTimeout(() => {
+        setPhase('done')
+        setMaxH(null) // 解除限制，避免超长 markdown 被裁
+      }, 800)
+      return () => {
+        clearTimeout(t1)
+        clearTimeout(t2)
+      }
+    }
+  }, [validating, phase])
 
   // Check if the image is relative path instead of a absolute url
   const isUrlAbsolute = (url: string | string[]) => url.indexOf('://') > 0 || url.indexOf('//') === 0
@@ -97,43 +144,67 @@ const MarkdownPreview: FC<{
       </PreviewContainer>
     )
   }
-  if (validating) {
-    // 加载时不渲染 PreviewContainer（半透明白底毛玻璃块），
-    // 避免加载期间在文件列表下方出现突兀的白色块/分界线。
-    // 只显示一个轻量 Loading，加载完成后再渲染完整容器。
-    return (
-      <>
-        <div className="py-4 text-center text-sm text-gray-400 dark:text-gray-500">
-          <Loading loadingText={t('Loading file content...')} />
-        </div>
-        {standalone && (
-          <DownloadBtnContainer>
-            <DownloadButtonGroup />
-          </DownloadBtnContainer>
-        )}
-      </>
-    )
-  }
+
+  // markdown 内容渲染（expanding / done 共用）
+  const markdownContent = (
+    <div
+      className="markdown-body"
+      style={{
+        opacity: contentVisible ? 1 : 0,
+        transition: 'opacity 0.45s ease',
+      }}
+    >
+      {/* Using rehypeRaw to render HTML inside Markdown is potentially dangerous, use under safe environments. (#18) */}
+      <ReactMarkdown
+        // @ts-ignore
+        remarkPlugins={[remarkGfm, remarkMath]}
+        // The type error is introduced by caniuse-lite upgrade.
+        // Since type errors occur often in remark toolchain and the use is so common,
+        // ignoring it shouleld be safe enough.
+        // @ts-ignore
+        rehypePlugins={[rehypeKatex, rehypeRaw]}
+        components={customRenderer}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  )
 
   return (
     <div>
-      <PreviewContainer>
-        <div className="markdown-body">
-          {/* Using rehypeRaw to render HTML inside Markdown is potentially dangerous, use under safe environments. (#18) */}
-          <ReactMarkdown
-            // @ts-ignore
-            remarkPlugins={[remarkGfm, remarkMath]}
-            // The type error is introduced by caniuse-lite upgrade.
-            // Since type errors occur often in remark toolchain and the use is so common,
-            // ignoring it shoudld be safe enough.
-            // @ts-ignore
-            rehypePlugins={[rehypeKatex, rehypeRaw]}
-            components={customRenderer}
+      {/* 毛玻璃容器：加载/过渡/完成三个阶段都用它，保证视觉连续。
+          - loading：内部只有 Loading 文字，py-16（原来 py-32 的一半）
+          - expanding：max-height 从加载态高度平滑展开到内容高度，Loading 淡出，内容淡入
+          - done：解除 max-height 限制，只显示内容 */}
+      <div
+        ref={containerRef}
+        className="relative overflow-hidden rounded-2xl p-3 shadow-sm"
+        style={{
+          backgroundColor: 'rgba(255, 255, 255, 0.45)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          maxHeight: maxH === null ? undefined : `${maxH}px`,
+          transition: 'max-height 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      >
+        {/* Loading 层：loading 占位撑开容器；expanding 时绝对定位淡出，给内容让出流式高度 */}
+        {phase !== 'done' && (
+          <div
+            className={`flex items-center justify-center py-16 text-sm text-gray-400 dark:text-gray-500 ${
+              phase === 'expanding' ? 'absolute inset-0' : ''
+            }`}
+            style={{
+              opacity: phase === 'loading' ? 1 : 0,
+              transition: 'opacity 0.35s ease',
+            }}
           >
-            {content}
-          </ReactMarkdown>
-        </div>
-      </PreviewContainer>
+            <LoadingIcon className="mr-3 h-5 w-5 animate-spin" />
+            <span>{t('Loading file content...')}</span>
+          </div>
+        )}
+        {/* 内容层：expanding 时淡入；done 时正常显示 */}
+        {phase !== 'loading' && markdownContent}
+      </div>
       {standalone && (
         <DownloadBtnContainer>
           <DownloadButtonGroup />
