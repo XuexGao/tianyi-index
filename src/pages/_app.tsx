@@ -110,10 +110,7 @@ function StatsFooter() {
         // 用 sessionStorage 保证单次会话只 +1 一次，避免刷新和路由切换重复计数
         const FLAG = 'stats_recorded'
         const method = sessionStorage.getItem(FLAG) ? 'GET' : 'POST'
-        // 注意：next.config.js 开了 trailingSlash: true，fetch('/api/stats') 会被
-        // 308 重定向到 '/api/stats/'，而 POST 在重定向过程中会退化为 GET，
-        // 导致 incrementVisit 永远不执行、数字恒为 0。所以这里必须带尾斜杠。
-        const res = await fetch('/api/stats/', { method })
+        const res = await fetch('/api/stats', { method })
         if (!res.ok) return
         const json = await res.json()
         const { today, total } = json?.data || {}
