@@ -442,7 +442,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
           高度还测不到，放进来会被 maxHeight+overflow:hidden 裁掉点不到 */}
       <div
         ref={fileListRef}
-        className="relative overflow-hidden rounded"
+        className="relative overflow-hidden rounded-2xl"
         style={{
           maxHeight: `${fileListMaxH}px`,
           transition: 'max-height 0.9s cubic-bezier(0.4, 0, 0.2, 1)',
