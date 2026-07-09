@@ -173,45 +173,11 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
   // hashedToken 用 backendPath+drive 查私密目录 token
   const hashedToken = getStoredToken(backendPath, drive)
 
-  const { data, error, isValidating, size, setSize } = useProtectedSWRInfinite(backendPath, apiBaseTyped)
+  const { data, error, size, setSize } = useProtectedSWRInfinite(backendPath, apiBaseTyped)
 
   // === 文件列表展开动画（loading → measuring → expanding → done）===
-  // isLoading 判断：首次加载（无 data 且无 error）或正在验证（加载新数据中）
-  // 注意 SWR 配置了 keepPreviousData:true，切换文件夹时 data 会保留旧值，
-  // 所以单靠 !data 判断不出"正在加载新文件夹"，需要结合 isValidating
-  const isLoading = (!data && !error) || (isValidating && !data)
+  const isLoading = !data && !error
   const { ref: fileListRef, phase: filePhase, maxH: fileListMaxH } = useExpandTransition(isLoading)
-
-  // === 文件夹点击收起动画 ===
-  // 点击文件夹时分两步收起，确保 max-height 从数字→数字能 CSS 过渡：
-  // 1. 先测当前高度，设 collapseStartH（maxHeight 从 none→数字，无视觉变化）
-  // 2. 下一帧设 collapsing=true（maxHeight 从 collapseStartH→150，触发收起过渡）
-  // 收起完成后 router.push，新页面挂载后从 loading 高度展开
-  const [collapsing, setCollapsing] = useState(false)
-  const [collapseStartH, setCollapseStartH] = useState<number | null>(null)
-  const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const onFolderNavigate = (href: string) => {
-    if (collapsing) return // 正在收起中，忽略重复点击
-    // 第一步：测量并锁定当前高度
-    if (fileListRef.current) {
-      setCollapseStartH(fileListRef.current.offsetHeight)
-    }
-    // 第二步：下一帧开始收起
-    requestAnimationFrame(() => {
-      setCollapsing(true)
-      navTimeoutRef.current = setTimeout(() => {
-        router.push(href)
-      }, 400)
-    })
-  }
-
-  // 组件卸载时清理定时器
-  useEffect(() => {
-    return () => {
-      if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current)
-    }
-  }, [])
 
   if (error) {
     return (
@@ -462,46 +428,39 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
     folderGenerating,
     handleSelectedPermalink,
     handleFolderDownload,
-    onFolderNavigate,
   }
 
   return (
     <>
       <Toaster />
 
-      {/* 文件列表容器：带展开/收起动画
+      {/* 文件列表容器：带展开动画（和 MarkdownPreview 一样的状态机）
           - loading：显示 Loading 文字（py-16，自带毛玻璃）
           - measuring/expanding：max-height 平滑过渡，Loading 淡出，内容淡入
           - done：正常显示
-          - collapsing：点击文件夹时收起到 loading 高度，收起后跳转新页面
           注意：readme 不在这个容器里，因为 readme 是独立异步加载，measuring 时
           高度还测不到，放进来会被 maxHeight+overflow:hidden 裁掉点不到 */}
       <div
         ref={fileListRef}
         className="relative overflow-hidden rounded-2xl"
         style={{
-          // maxHeight 优先级：collapseStartH（锁定高度）> collapsing（收起到148）> hook maxH
-          maxHeight: collapseStartH !== null
-            ? (collapsing ? 148 : collapseStartH)
-            : (fileListMaxH === null ? undefined : `${fileListMaxH}px`),
-          transition: `max-height ${collapsing ? 0.4 : 0.9}s cubic-bezier(0.4, 0, 0.2, 1)`,
-          // loading 阶段 Loading 层是 absolute，容器需要 min-height 保证有高度
-          minHeight: filePhase === 'loading' ? 148 : 0,
+          maxHeight: `${fileListMaxH}px`,
+          transition: 'max-height 0.9s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
-        {/* Loading 层：始终 absolute inset-0，毛玻璃背景覆盖整个容器
-            - loading/collapsing 时 opacity=1 显示
-            - measuring/expanding 时 opacity=0 淡出
-            - done 时卸载
-            始终 absolute 避免从 in-flow 切到 absolute 时的闪烁 */}
-        {(collapsing || filePhase !== 'done') && (
+        {/* Loading 层：loading 时撑开容器；measuring/expanding 时绝对定位淡出
+            自带毛玻璃背景（和 od-files-container 一致），文字颜色与文件列表一致。
+            不设自己的 rounded，继承外层容器的圆角 */}
+        {filePhase !== 'done' && (
           <div
-            className="absolute inset-0 flex items-center justify-center py-16 text-sm text-gray-700 dark:text-gray-200"
+            className={`flex items-center justify-center py-16 text-sm text-gray-700 dark:text-gray-200 ${
+              filePhase === 'measuring' || filePhase === 'expanding' ? 'absolute inset-0' : ''
+            }`}
             style={{
               backgroundColor: 'rgba(255, 255, 255, 0.45)',
               backdropFilter: 'blur(14px)',
               WebkitBackdropFilter: 'blur(14px)',
-              opacity: (collapsing || filePhase === 'loading') ? 1 : 0,
+              opacity: filePhase === 'loading' ? 1 : 0,
               transition: 'opacity 0.4s ease',
             }}
           >
@@ -511,16 +470,9 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
         )}
 
         {/* 内容层：measuring 开始渲染（测高度），expanding 淡入，done 正常显示
-            collapsing 时 absolute 淡出；否则 in-flow 撑开容器
             FolderListLayout/FolderGridLayout 自带 od-files-container 毛玻璃 */}
         {data && filePhase !== 'loading' && (
-          <div
-            className={collapsing ? 'absolute inset-0' : ''}
-            style={{
-              opacity: collapsing ? 0 : (filePhase === 'measuring' ? 0 : 1),
-              transition: 'opacity 0.4s ease',
-            }}
-          >
+          <>
             {layout.name === 'Grid' ? <FolderGridLayout {...folderProps} /> : <FolderListLayout {...folderProps} />}
 
             {!onlyOnePage && (
@@ -557,28 +509,14 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
                 </button>
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
 
-      {/* readme 独立渲染在动画容器外，不受 maxHeight/overflow 限制，避免内容被裁
-          collapsing 时从下往上收起，避免新旧 readme 并存鬼畜
-          用 grid-template-rows 1fr→0fr 技巧实现 auto 高度的平滑过渡
-          （max-height: none ↔ 数字之间无法 CSS 过渡，grid 1fr/0fr 可以） */}
+      {/* readme 独立渲染在动画容器外，不受 maxHeight/overflow 限制，避免内容被裁 */}
       {data && readmeFiles.map(f => (
-        <div
-          key={f.id}
-          style={{
-            display: 'grid',
-            gridTemplateRows: collapsing ? '0fr' : '1fr',
-            opacity: collapsing ? 0 : 1,
-            transition: 'grid-template-rows 0.4s ease, opacity 0.3s ease',
-            marginTop: collapsing ? 0 : '1rem',
-          }}
-        >
-          <div style={{ overflow: 'hidden' }}>
-            <MarkdownPreview file={f} path={backendPath} standalone={false} />
-          </div>
+        <div className="mt-4" key={f.id}>
+          <MarkdownPreview file={f} path={backendPath} standalone={false} />
         </div>
       ))}
     </>

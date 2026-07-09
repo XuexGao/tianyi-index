@@ -140,17 +140,17 @@ const MarkdownPreview: FC<{
           backgroundColor: 'rgba(255, 255, 255, 0.45)',
           backdropFilter: 'blur(14px)',
           WebkitBackdropFilter: 'blur(14px)',
-          maxHeight: maxH === null ? undefined : `${maxH}px`,
+          maxHeight: `${maxH}px`,
           transition: 'max-height 0.9s cubic-bezier(0.4, 0, 0.2, 1)',
-          // loading 阶段 Loading 层是 absolute，容器需要 min-height 保证有高度
-          minHeight: phase === 'loading' ? 148 : 0,
         }}
       >
-        {/* Loading 层：始终 absolute inset-0，避免从 in-flow 切到 absolute 时闪烁
-            loading 时 opacity=1，measuring/expanding 时 opacity=0 淡出，done 时卸载 */}
+        {/* Loading 层：loading 占位撑开容器；measuring/expanding 时绝对定位淡出，给内容让出流式高度
+            文字颜色用 text-gray-700 dark:text-gray-200，与文件列表保持一致 */}
         {phase !== 'done' && (
           <div
-            className="absolute inset-0 flex items-center justify-center py-16 text-sm text-gray-700 dark:text-gray-200"
+            className={`flex items-center justify-center py-16 text-sm text-gray-700 dark:text-gray-200 ${
+              phase === 'measuring' || phase === 'expanding' ? 'absolute inset-0' : ''
+            }`}
             style={{
               opacity: phase === 'loading' ? 1 : 0,
               transition: 'opacity 0.4s ease',
