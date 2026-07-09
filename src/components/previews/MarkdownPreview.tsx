@@ -103,13 +103,15 @@ const MarkdownPreview: FC<{
   }
 
   // markdown 内容渲染（measuring/expanding/done 共用）
-  // opacity：loading=0 不可见；measuring=0 不可见（占位测高度）；expanding/done=1 淡入可见
+  // opacity + scale：loading/measuring=0 不可见；expanding/done=1 淡入+缩放进入
   const markdownContent = (
     <div
       className="markdown-body"
       style={{
         opacity: phase === 'loading' || phase === 'measuring' ? 0 : 1,
-        transition: 'opacity 0.5s ease',
+        transform: phase === 'loading' || phase === 'measuring' ? 'scale(0.96)' : 'scale(1)',
+        transformOrigin: 'top center',
+        transition: 'opacity 0.5s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
       {/* Using rehypeRaw to render HTML inside Markdown is potentially dangerous, use under safe environments. (#18) */}
