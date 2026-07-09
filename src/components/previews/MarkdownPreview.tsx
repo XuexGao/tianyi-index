@@ -103,15 +103,13 @@ const MarkdownPreview: FC<{
   }
 
   // markdown 内容渲染（measuring/expanding/done 共用）
-  // opacity + scale：loading/measuring=0 不可见；expanding/done=1 淡入+缩放进入
+  // opacity：loading=0 不可见；measuring=0 不可见（占位测高度）；expanding/done=1 淡入可见
   const markdownContent = (
     <div
       className="markdown-body"
       style={{
         opacity: phase === 'loading' || phase === 'measuring' ? 0 : 1,
-        transform: phase === 'loading' || phase === 'measuring' ? 'scale(0.95)' : 'scale(1)',
-        transformOrigin: 'top center',
-        transition: 'opacity 0.5s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'opacity 0.5s ease',
       }}
     >
       {/* Using rehypeRaw to render HTML inside Markdown is potentially dangerous, use under safe environments. (#18) */}
@@ -142,11 +140,11 @@ const MarkdownPreview: FC<{
           backgroundColor: 'rgba(255, 255, 255, 0.45)',
           backdropFilter: 'blur(14px)',
           WebkitBackdropFilter: 'blur(14px)',
-          maxHeight: maxH === null ? undefined : `${maxH}px`,
+          maxHeight: `${maxH}px`,
           transition: 'max-height 0.9s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
-        {/* Loading 层：loading 时 in-flow 撑开容器；measuring/expanding 时 absolute 浮在内容上淡出
+        {/* Loading 层：loading 占位撑开容器；measuring/expanding 时绝对定位淡出，给内容让出流式高度
             文字颜色用 text-gray-700 dark:text-gray-200，与文件列表保持一致 */}
         {phase !== 'done' && (
           <div

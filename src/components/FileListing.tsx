@@ -444,7 +444,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
         ref={fileListRef}
         className="relative overflow-hidden rounded-2xl"
         style={{
-          maxHeight: fileListMaxH === null ? undefined : `${fileListMaxH}px`,
+          maxHeight: `${fileListMaxH}px`,
           transition: 'max-height 0.9s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
