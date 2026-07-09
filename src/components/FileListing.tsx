@@ -177,7 +177,29 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
 
   // === 文件列表展开动画（loading → measuring → expanding → done）===
   const isLoading = !data && !error
-  const { ref: fileListRef, phase: filePhase, maxH: fileListMaxH } = useExpandTransition(isLoading)
+  const { ref: fileListRef, phase: filePhase, maxH: fileListMaxH, transitionReady } = useExpandTransition(isLoading)
+
+  // === 文件夹点击收起动画 ===
+  // 点击文件夹时先收起到 loading 卡片高度，收起完成后再 router.push
+  // 新页面挂载后从 loading 高度展开，实现「收起→展开」衔接
+  // 缓存命中时新页面 data 立即有值，快速走 measuring→expanding，跳过 loading 等待
+  const [collapsing, setCollapsing] = useState(false)
+  const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const onFolderNavigate = (href: string) => {
+    if (collapsing) return // 正在收起中，忽略重复点击
+    setCollapsing(true)
+    navTimeoutRef.current = setTimeout(() => {
+      router.push(href)
+    }, 400)
+  }
+
+  // 组件卸载时清理定时器
+  useEffect(() => {
+    return () => {
+      if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current)
+    }
+  }, [])
 
   if (error) {
     return (
@@ -428,30 +450,35 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
     folderGenerating,
     handleSelectedPermalink,
     handleFolderDownload,
+    onFolderNavigate,
   }
 
   return (
     <>
       <Toaster />
 
-      {/* 文件列表容器：带展开动画（和 MarkdownPreview 一样的状态机）
+      {/* 文件列表容器：带展开/收起动画
           - loading：显示 Loading 文字（py-16，自带毛玻璃）
           - measuring/expanding：max-height 平滑过渡，Loading 淡出，内容淡入
           - done：正常显示
+          - collapsing：点击文件夹时收起到 loading 高度，收起后跳转新页面
           注意：readme 不在这个容器里，因为 readme 是独立异步加载，measuring 时
           高度还测不到，放进来会被 maxHeight+overflow:hidden 裁掉点不到 */}
       <div
         ref={fileListRef}
         className="relative overflow-hidden rounded-2xl"
         style={{
-          maxHeight: `${fileListMaxH}px`,
-          transition: 'max-height 0.9s cubic-bezier(0.4, 0, 0.2, 1)',
+          // collapsing 时收起到 150px（loading 卡片高度 ~148px），否则用 hook 的 maxH
+          maxHeight: `${collapsing ? 150 : fileListMaxH}px`,
+          // collapsing 时用 0.4s 快速收起；transitionReady 后才启用过渡（避免初始 0→loading 瞬切）
+          transition: (collapsing || transitionReady)
+            ? `max-height ${collapsing ? 0.4 : 0.9}s cubic-bezier(0.4, 0, 0.2, 1)`
+            : 'none',
         }}
       >
-        {/* Loading 层：loading 时撑开容器；measuring/expanding 时绝对定位淡出
-            自带毛玻璃背景（和 od-files-container 一致），文字颜色与文件列表一致。
-            不设自己的 rounded，继承外层容器的圆角 */}
-        {filePhase !== 'done' && (
+        {/* Loading 层：loading/collapsing 时撑开容器；measuring/expanding 时绝对定位淡出
+            自带毛玻璃背景（和 od-files-container 一致），文字颜色与文件列表一致 */}
+        {(collapsing || filePhase !== 'done') && (
           <div
             className={`flex items-center justify-center py-16 text-sm text-gray-700 dark:text-gray-200 ${
               filePhase === 'measuring' || filePhase === 'expanding' ? 'absolute inset-0' : ''
@@ -460,7 +487,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
               backgroundColor: 'rgba(255, 255, 255, 0.45)',
               backdropFilter: 'blur(14px)',
               WebkitBackdropFilter: 'blur(14px)',
-              opacity: filePhase === 'loading' ? 1 : 0,
+              opacity: (collapsing || filePhase === 'loading') ? 1 : 0,
               transition: 'opacity 0.4s ease',
             }}
           >
@@ -470,9 +497,15 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
         )}
 
         {/* 内容层：measuring 开始渲染（测高度），expanding 淡入，done 正常显示
+            collapsing 时内容仍在 DOM 中但淡出（opacity 0），让 loading 文字占位
             FolderListLayout/FolderGridLayout 自带 od-files-container 毛玻璃 */}
         {data && filePhase !== 'loading' && (
-          <>
+          <div
+            style={{
+              opacity: collapsing ? 0 : (filePhase === 'measuring' ? 0 : 1),
+              transition: 'opacity 0.4s ease',
+            }}
+          >
             {layout.name === 'Grid' ? <FolderGridLayout {...folderProps} /> : <FolderListLayout {...folderProps} />}
 
             {!onlyOnePage && (
@@ -509,7 +542,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
                 </button>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 

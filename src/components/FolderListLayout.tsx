@@ -53,6 +53,7 @@ const FolderListLayout = ({
   folderGenerating,
   handleSelectedPermalink,
   handleFolderDownload,
+  onFolderNavigate,
   toast,
 }) => {
   const clipboard = useClipboard()
@@ -123,15 +124,18 @@ const FolderListLayout = ({
         </div>
       </div>
 
-      {folderChildren.map((c: OdFolderChildren) => (
+      {folderChildren.map((c: OdFolderChildren) => {
+        const itemHref = `${path === '/' ? '' : path}/${encodeURIComponent(c.name)}`
+        return (
         <div
           className="od-file-entry grid grid-cols-12 transition-all duration-100 hover:bg-gray-100 dark:hover:bg-gray-850"
           key={c.id}
         >
           <Link
-            href={`${path === '/' ? '' : path}/${encodeURIComponent(c.name)}`}
+            href={itemHref}
             passHref
             className="col-span-12 md:col-span-10"
+            onClick={c.folder ? (e => { e.preventDefault(); onFolderNavigate(itemHref) }) : undefined}
           >
             <FileListItem fileContent={c} showSize={showSize} />
           </Link>
@@ -200,7 +204,8 @@ const FolderListLayout = ({
             )}
           </div>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

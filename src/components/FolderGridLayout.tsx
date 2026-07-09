@@ -80,6 +80,7 @@ const FolderGridLayout = ({
   folderGenerating,
   handleSelectedPermalink,
   handleFolderDownload,
+  onFolderNavigate,
   toast,
 }) => {
   const clipboard = useClipboard()
@@ -207,7 +208,11 @@ const FolderGridLayout = ({
               )}
             </div>
 
-            <Link href={getItemPath(c.name)} passHref>
+            <Link
+              href={getItemPath(c.name)}
+              passHref
+              onClick={c.folder ? (e => { e.preventDefault(); onFolderNavigate(getItemPath(c.name)) }) : undefined}
+            >
               <GridItem c={c} backendPath={getBackendItemPath(c.name)} apiBase={apiBase} drive={drive} />
             </Link>
           </div>

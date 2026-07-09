@@ -32,7 +32,7 @@ const MarkdownPreview: FC<{
   const { t } = useTranslation()
 
   // 加载展开过渡动画（loading → measuring → expanding → done）
-  const { ref: containerRef, phase, maxH } = useExpandTransition(validating)
+  const { ref: containerRef, phase, maxH, transitionReady } = useExpandTransition(validating)
 
   // Check if the image is relative path instead of a absolute url
   const isUrlAbsolute = (url: string | string[]) => url.indexOf('://') > 0 || url.indexOf('//') === 0
@@ -141,7 +141,7 @@ const MarkdownPreview: FC<{
           backdropFilter: 'blur(14px)',
           WebkitBackdropFilter: 'blur(14px)',
           maxHeight: `${maxH}px`,
-          transition: 'max-height 0.9s cubic-bezier(0.4, 0, 0.2, 1)',
+          transition: transitionReady ? 'max-height 0.9s cubic-bezier(0.4, 0, 0.2, 1)' : 'none',
         }}
       >
         {/* Loading 层：loading 占位撑开容器；measuring/expanding 时绝对定位淡出，给内容让出流式高度

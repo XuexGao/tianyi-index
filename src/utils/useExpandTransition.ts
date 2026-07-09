@@ -9,24 +9,29 @@ import { useState, useEffect, useRef } from 'react'
  * - expanding：max-height 从 loading 高度 → 内容高度平滑过渡，Loading 淡出，内容淡入
  * - done：过渡完成，正常显示
  *
- * 关键：maxH 始终是数字（不用 null/none），否则 max-height: none ↔ 数字之间无法 CSS 过渡。
- * loading 和 measuring 各测一次高度，保证"加载框比内容大"和"比内容小"两种情况都有动画。
+ * 关键设计：
+ * 1. maxH 始终是数字（不用 null/none），否则 max-height: none ↔ 数字之间无法 CSS 过渡
+ * 2. transitionReady 控制是否启用 CSS transition：
+ *    - 初始 false，loading 测量后才 true
+ *    - 这样初始 0→loading 高度是瞬切（不动画），loading→内容才平滑过渡
  *
  * @param isLoading 是否正在加载
- * @returns { ref, phase, maxH } ref 绑到容器 div，phase 控制内容/Loading 显隐，maxH 设到容器 style.maxHeight
+ * @returns { ref, phase, maxH, transitionReady }
  */
 export function useExpandTransition(isLoading: boolean) {
   const [phase, setPhase] = useState<'loading' | 'measuring' | 'expanding' | 'done'>('loading')
   const [maxH, setMaxH] = useState<number>(0)
+  const [transitionReady, setTransitionReady] = useState<boolean>(false)
   const ref = useRef<HTMLDivElement>(null)
   const transitionedRef = useRef(false)
 
-  // 新一次加载（isLoading 变 true）时回到 loading，maxH 归零触发重新测量
+  // 新一次加载（isLoading 变 true）时回到 loading，重置状态
   useEffect(() => {
     if (isLoading) {
       transitionedRef.current = false
       setPhase('loading')
       setMaxH(0)
+      setTransitionReady(false)
     }
   }, [isLoading])
 
@@ -36,9 +41,10 @@ export function useExpandTransition(isLoading: boolean) {
       const measure = () => {
         if (ref.current && ref.current.scrollHeight > 0) {
           setMaxH(ref.current.scrollHeight)
+          // 下一帧才启用 transition，确保 maxH 变化（0→loading高度）是瞬切不动画
+          requestAnimationFrame(() => setTransitionReady(true))
         }
       }
-      // 双 rAF：第一帧 React 提交 DOM，第二帧布局完成，测量才准确
       requestAnimationFrame(() => requestAnimationFrame(measure))
     }
   }, [phase])
@@ -72,5 +78,5 @@ export function useExpandTransition(isLoading: boolean) {
     }
   }, [phase])
 
-  return { ref, phase, maxH }
+  return { ref, phase, maxH, transitionReady }
 }
