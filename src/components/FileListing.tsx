@@ -476,12 +476,14 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
             : 'none',
         }}
       >
-        {/* Loading 层：loading/collapsing 时撑开容器；measuring/expanding 时绝对定位淡出
-            自带毛玻璃背景（和 od-files-container 一致），文字颜色与文件列表一致 */}
+        {/* Loading 层：loading/collapsing 时 in-flow 撑开容器（带毛玻璃背景）；
+            measuring/expanding 时 absolute 浮在内容上淡出。
+            关键：collapsing 时用 in-flow 不是 absolute，保证毛玻璃背景始终覆盖容器，
+            内容淡出时下面是毛玻璃而不是透明 */}
         {(collapsing || filePhase !== 'done') && (
           <div
             className={`flex items-center justify-center py-16 text-sm text-gray-700 dark:text-gray-200 ${
-              filePhase === 'measuring' || filePhase === 'expanding' ? 'absolute inset-0' : ''
+              (filePhase === 'measuring' || filePhase === 'expanding') && !collapsing ? 'absolute inset-0' : ''
             }`}
             style={{
               backgroundColor: 'rgba(255, 255, 255, 0.45)',
@@ -497,10 +499,12 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
         )}
 
         {/* 内容层：measuring 开始渲染（测高度），expanding 淡入，done 正常显示
-            collapsing 时内容仍在 DOM 中但淡出（opacity 0），让 loading 文字占位
+            collapsing 时内容 absolute 浮在 loading 上层淡出，不占流式高度，
+            避免 loading 文字和内容同时 in-flow 导致高度冲突闪烁
             FolderListLayout/FolderGridLayout 自带 od-files-container 毛玻璃 */}
         {data && filePhase !== 'loading' && (
           <div
+            className={collapsing ? 'absolute inset-0' : ''}
             style={{
               opacity: collapsing ? 0 : (filePhase === 'measuring' ? 0 : 1),
               transition: 'opacity 0.4s ease',
@@ -546,10 +550,24 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
         )}
       </div>
 
-      {/* readme 独立渲染在动画容器外，不受 maxHeight/overflow 限制，避免内容被裁 */}
+      {/* readme 独立渲染在动画容器外，不受 maxHeight/overflow 限制，避免内容被裁
+          collapsing 时从下往上收起，避免新旧 readme 并存鬼畜
+          用 grid-template-rows 1fr→0fr 技巧实现 auto 高度的平滑过渡
+          （max-height: none ↔ 数字之间无法 CSS 过渡，grid 1fr/0fr 可以） */}
       {data && readmeFiles.map(f => (
-        <div className="mt-4" key={f.id}>
-          <MarkdownPreview file={f} path={backendPath} standalone={false} />
+        <div
+          key={f.id}
+          style={{
+            display: 'grid',
+            gridTemplateRows: collapsing ? '0fr' : '1fr',
+            opacity: collapsing ? 0 : 1,
+            transition: 'grid-template-rows 0.4s ease, opacity 0.3s ease',
+            marginTop: collapsing ? 0 : '1rem',
+          }}
+        >
+          <div style={{ overflow: 'hidden' }}>
+            <MarkdownPreview file={f} path={backendPath} standalone={false} />
+          </div>
         </div>
       ))}
     </>
