@@ -31,50 +31,68 @@ const MarkdownPreview: FC<{
   const { t } = useTranslation()
 
   // === 加载过渡动画状态机 ===
-  // loading：显示毛玻璃容器 + Loading 文字（py-16，原来一半）
-  // expanding：数据到了，容器 max-height 从加载态高度平滑展开，Loading 淡出，内容淡入
-  // done：正常显示，解除 max-height 限制
-  const [phase, setPhase] = useState<'loading' | 'expanding' | 'done'>('loading')
-  // maxH=null 时不限制高度；loading 测量后设为实际高度作为过渡起点
-  const [maxH, setMaxH] = useState<number | null>(null)
+  // loading：毛玻璃容器 + Loading 文字（py-16，原来一半），测 loading 高度作为过渡起点
+  // measuring：数据到了，渲染内容（opacity 0 不可见但占位），测内容真实高度
+  // expanding：max-height 从 loading 高度 → 内容高度平滑过渡，Loading 淡出，内容淡入
+  // done：过渡完成，正常显示
+  //
+  // 关键：maxH 始终是数字（不用 null/none），否则 max-height: none ↔ 数字之间无法 CSS 过渡。
+  // loading 和 measuring 各测一次高度，保证"加载框比内容大"和"比内容小"两种情况都有动画。
+  const [phase, setPhase] = useState<'loading' | 'measuring' | 'expanding' | 'done'>('loading')
+  const [maxH, setMaxH] = useState<number>(0)
   const containerRef = useRef<HTMLDivElement>(null)
-  // 标记本次加载是否已完成过渡，避免 effect 依赖 phase 导致 cleanup 误清 timer
   const transitionedRef = useRef(false)
 
-  // 新一次加载（validating 变 true）时回到 loading
+  // 新一次加载（validating 变 true）时回到 loading，maxH 归零触发重新测量
   useEffect(() => {
     if (validating) {
       transitionedRef.current = false
       setPhase('loading')
-      setMaxH(null)
+      setMaxH(0)
     }
   }, [validating])
 
-  // loading 时测量容器实际高度，作为 expanding 阶段 max-height 过渡的起点，
-  // 这样从 loading→expanding 切换瞬间不会有高度跳变。
+  // loading 阶段：测量容器（此时只有 Loading 文字撑开）的实际高度，作为过渡起点
   useEffect(() => {
     if (phase === 'loading' && containerRef.current) {
-      // requestAnimationFrame 确保测量在布局完成后
-      requestAnimationFrame(() => {
-        if (containerRef.current) setMaxH(containerRef.current.scrollHeight)
-      })
+      const measure = () => {
+        if (containerRef.current && containerRef.current.scrollHeight > 0) {
+          setMaxH(containerRef.current.scrollHeight)
+        }
+      }
+      // 双 rAF：第一帧 React 提交 DOM，第二帧布局完成，测量才准确
+      requestAnimationFrame(() => requestAnimationFrame(measure))
     }
   }, [phase])
 
-  // 数据加载完成，触发 expanding → done
-  // 用 ref 防重复，不把 phase 放进依赖，避免 phase 变化时 cleanup 清掉 timer
+  // 数据加载完成 → measuring：渲染内容层（opacity 0），下一帧测内容真实高度
   useEffect(() => {
     if (!validating && !transitionedRef.current) {
       transitionedRef.current = true
-      setPhase('expanding')
-      setMaxH(5000) // 展开到一个足够大的值，实际高度由内容撑开
-      const t = setTimeout(() => {
-        setPhase('done')
-        setMaxH(null) // 解除限制，避免超长 markdown 被裁
-      }, 800)
-      return () => clearTimeout(t)
+      setPhase('measuring')
     }
   }, [validating])
+
+  // measuring 阶段：内容已渲染但不可见，测量容器此时（含内容）的实际高度，然后进入 expanding
+  useEffect(() => {
+    if (phase === 'measuring') {
+      const measure = () => {
+        if (containerRef.current) {
+          setMaxH(containerRef.current.scrollHeight)
+          setPhase('expanding')
+        }
+      }
+      requestAnimationFrame(() => requestAnimationFrame(measure))
+    }
+  }, [phase])
+
+  // expanding → done：等过渡动画完成后收尾
+  useEffect(() => {
+    if (phase === 'expanding') {
+      const t = setTimeout(() => setPhase('done'), 900)
+      return () => clearTimeout(t)
+    }
+  }, [phase])
 
   // Check if the image is relative path instead of a absolute url
   const isUrlAbsolute = (url: string | string[]) => url.indexOf('://') > 0 || url.indexOf('//') === 0
@@ -144,14 +162,14 @@ const MarkdownPreview: FC<{
     )
   }
 
-  // markdown 内容渲染（expanding / done 共用）
-  // opacity 直接由 phase 驱动：expanding/done 时可见（配合 0.45s 淡入），loading 不可见
+  // markdown 内容渲染（measuring/expanding/done 共用）
+  // opacity：loading=0 不可见；measuring=0 不可见（占位测高度）；expanding/done=1 淡入可见
   const markdownContent = (
     <div
       className="markdown-body"
       style={{
-        opacity: phase === 'loading' ? 0 : 1,
-        transition: 'opacity 0.45s ease',
+        opacity: phase === 'loading' || phase === 'measuring' ? 0 : 1,
+        transition: 'opacity 0.5s ease',
       }}
     >
       {/* Using rehypeRaw to render HTML inside Markdown is potentially dangerous, use under safe environments. (#18) */}
@@ -172,10 +190,9 @@ const MarkdownPreview: FC<{
 
   return (
     <div>
-      {/* 毛玻璃容器：加载/过渡/完成三个阶段都用它，保证视觉连续。
-          - loading：内部只有 Loading 文字，py-16（原来 py-32 的一半）
-          - expanding：max-height 从加载态高度平滑展开到内容高度，Loading 淡出，内容淡入
-          - done：解除 max-height 限制，只显示内容 */}
+      {/* 毛玻璃容器：四个阶段共用，保证视觉连续。
+          - loading/measuring/expanding：max-height 受控，平滑过渡
+          - done：max-height 保持内容高度，不限制溢出 */}
       <div
         ref={containerRef}
         className="relative overflow-hidden rounded-2xl p-3 shadow-sm"
@@ -183,27 +200,27 @@ const MarkdownPreview: FC<{
           backgroundColor: 'rgba(255, 255, 255, 0.45)',
           backdropFilter: 'blur(14px)',
           WebkitBackdropFilter: 'blur(14px)',
-          maxHeight: maxH === null ? undefined : `${maxH}px`,
-          transition: 'max-height 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
+          maxHeight: `${maxH}px`,
+          transition: 'max-height 0.9s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
-        {/* Loading 层：loading 占位撑开容器；expanding 时绝对定位淡出，给内容让出流式高度
+        {/* Loading 层：loading 占位撑开容器；measuring/expanding 时绝对定位淡出，给内容让出流式高度
             文字颜色用 text-gray-700 dark:text-gray-200，与文件列表保持一致 */}
         {phase !== 'done' && (
           <div
             className={`flex items-center justify-center py-16 text-sm text-gray-700 dark:text-gray-200 ${
-              phase === 'expanding' ? 'absolute inset-0' : ''
+              phase === 'measuring' || phase === 'expanding' ? 'absolute inset-0' : ''
             }`}
             style={{
               opacity: phase === 'loading' ? 1 : 0,
-              transition: 'opacity 0.35s ease',
+              transition: 'opacity 0.4s ease',
             }}
           >
             <LoadingIcon className="mr-3 h-5 w-5 animate-spin" />
             <span>{t('Loading file content...')}</span>
           </div>
         )}
-        {/* 内容层：expanding 时淡入；done 时正常显示 */}
+        {/* 内容层：measuring 开始渲染（测高度），expanding 淡入，done 正常显示 */}
         {phase !== 'loading' && markdownContent}
       </div>
       {standalone && (
