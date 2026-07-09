@@ -25,11 +25,16 @@ const LOADING_H = 148
  * @returns { ref, phase, maxH } ref 绑到容器 div，phase 控制内容/Loading 显隐，maxH 设到容器 style.maxHeight
  */
 export function useExpandTransition(isLoading: boolean) {
-  const [phase, setPhase] = useState<'loading' | 'measuring' | 'expanding' | 'done'>('loading')
-  // null = max-height: none（不限制，loading 阶段用）；数字 = 受控（过渡用）
-  const [maxH, setMaxH] = useState<number | null>(null)
+  // 初始 phase：如果 isLoading 初始就是 false（缓存命中），跳过 loading 直接 measuring
+  // 这样缓存命中时不显示 loading 卡片，避免"先变小再变大"的闪烁
+  const [phase, setPhase] = useState<'loading' | 'measuring' | 'expanding' | 'done'>(
+    isLoading ? 'loading' : 'measuring'
+  )
+  // 初始 maxH：loading 阶段 null（不限制，Loading 文字撑开）；
+  // 缓存命中跳到 measuring 时用 LOADING_H 作为展开起点（和收起动画的 148px 衔接）
+  const [maxH, setMaxH] = useState<number | null>(isLoading ? null : LOADING_H)
   const ref = useRef<HTMLDivElement>(null)
-  const transitionedRef = useRef(false)
+  const transitionedRef = useRef(!isLoading) // 缓存命中时标记已过渡，跳过 loading→measuring
 
   // 新一次加载（isLoading 变 true）时回到 loading
   useEffect(() => {

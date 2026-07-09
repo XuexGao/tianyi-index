@@ -173,10 +173,13 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
   // hashedToken 用 backendPath+drive 查私密目录 token
   const hashedToken = getStoredToken(backendPath, drive)
 
-  const { data, error, size, setSize } = useProtectedSWRInfinite(backendPath, apiBaseTyped)
+  const { data, error, isValidating, size, setSize } = useProtectedSWRInfinite(backendPath, apiBaseTyped)
 
   // === 文件列表展开动画（loading → measuring → expanding → done）===
-  const isLoading = !data && !error
+  // isLoading 判断：首次加载（无 data 且无 error）或正在验证（加载新数据中）
+  // 注意 SWR 配置了 keepPreviousData:true，切换文件夹时 data 会保留旧值，
+  // 所以单靠 !data 判断不出"正在加载新文件夹"，需要结合 isValidating
+  const isLoading = (!data && !error) || (isValidating && !data)
   const { ref: fileListRef, phase: filePhase, maxH: fileListMaxH } = useExpandTransition(isLoading)
 
   // === 文件夹点击收起动画 ===
@@ -477,26 +480,23 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
         ref={fileListRef}
         className="relative overflow-hidden rounded-2xl"
         style={{
-          // maxHeight 优先级：collapseStartH（锁定高度）> collapsing（收起到150）> hook maxH
-          // - 点击文件夹第一帧：collapseStartH=当前高度，collapsing=false
-          //   maxHeight 从 none→collapseStartH（无视觉变化，锁定起点）
-          // - 下一帧：collapsing=true，maxHeight 从 collapseStartH→150（触发收起过渡）
-          // - 非 collapsing 且无 collapseStartH：hook 的 maxH（null=不限制，数字=受控过渡）
+          // maxHeight 优先级：collapseStartH（锁定高度）> collapsing（收起到148）> hook maxH
           maxHeight: collapseStartH !== null
             ? (collapsing ? 148 : collapseStartH)
             : (fileListMaxH === null ? undefined : `${fileListMaxH}px`),
           transition: `max-height ${collapsing ? 0.4 : 0.9}s cubic-bezier(0.4, 0, 0.2, 1)`,
+          // loading 阶段 Loading 层是 absolute，容器需要 min-height 保证有高度
+          minHeight: filePhase === 'loading' ? 148 : 0,
         }}
       >
-        {/* Loading 层：loading/collapsing 时 in-flow 撑开容器（带毛玻璃背景）；
-            measuring/expanding 时 absolute 浮在内容上淡出。
-            关键：collapsing 时用 in-flow 不是 absolute，保证毛玻璃背景始终覆盖容器，
-            内容淡出时下面是毛玻璃而不是透明 */}
+        {/* Loading 层：始终 absolute inset-0，毛玻璃背景覆盖整个容器
+            - loading/collapsing 时 opacity=1 显示
+            - measuring/expanding 时 opacity=0 淡出
+            - done 时卸载
+            始终 absolute 避免从 in-flow 切到 absolute 时的闪烁 */}
         {(collapsing || filePhase !== 'done') && (
           <div
-            className={`flex items-center justify-center py-16 text-sm text-gray-700 dark:text-gray-200 ${
-              (filePhase === 'measuring' || filePhase === 'expanding') && !collapsing ? 'absolute inset-0' : ''
-            }`}
+            className="absolute inset-0 flex items-center justify-center py-16 text-sm text-gray-700 dark:text-gray-200"
             style={{
               backgroundColor: 'rgba(255, 255, 255, 0.45)',
               backdropFilter: 'blur(14px)',
@@ -511,8 +511,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
         )}
 
         {/* 内容层：measuring 开始渲染（测高度），expanding 淡入，done 正常显示
-            collapsing 时内容 absolute 浮在 loading 上层淡出，不占流式高度，
-            避免 loading 文字和内容同时 in-flow 导致高度冲突闪烁
+            collapsing 时 absolute 淡出；否则 in-flow 撑开容器
             FolderListLayout/FolderGridLayout 自带 od-files-container 毛玻璃 */}
         {data && filePhase !== 'loading' && (
           <div
