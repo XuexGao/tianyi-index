@@ -177,21 +177,30 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
 
   // === 文件列表展开动画（loading → measuring → expanding → done）===
   const isLoading = !data && !error
-  const { ref: fileListRef, phase: filePhase, maxH: fileListMaxH, transitionReady } = useExpandTransition(isLoading)
+  const { ref: fileListRef, phase: filePhase, maxH: fileListMaxH } = useExpandTransition(isLoading)
 
   // === 文件夹点击收起动画 ===
-  // 点击文件夹时先收起到 loading 卡片高度，收起完成后再 router.push
-  // 新页面挂载后从 loading 高度展开，实现「收起→展开」衔接
-  // 缓存命中时新页面 data 立即有值，快速走 measuring→expanding，跳过 loading 等待
+  // 点击文件夹时分两步收起，确保 max-height 从数字→数字能 CSS 过渡：
+  // 1. 先测当前高度，设 collapseStartH（maxHeight 从 none→数字，无视觉变化）
+  // 2. 下一帧设 collapsing=true（maxHeight 从 collapseStartH→150，触发收起过渡）
+  // 收起完成后 router.push，新页面挂载后从 loading 高度展开
   const [collapsing, setCollapsing] = useState(false)
+  const [collapseStartH, setCollapseStartH] = useState<number | null>(null)
   const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const onFolderNavigate = (href: string) => {
     if (collapsing) return // 正在收起中，忽略重复点击
-    setCollapsing(true)
-    navTimeoutRef.current = setTimeout(() => {
-      router.push(href)
-    }, 400)
+    // 第一步：测量并锁定当前高度
+    if (fileListRef.current) {
+      setCollapseStartH(fileListRef.current.offsetHeight)
+    }
+    // 第二步：下一帧开始收起
+    requestAnimationFrame(() => {
+      setCollapsing(true)
+      navTimeoutRef.current = setTimeout(() => {
+        router.push(href)
+      }, 400)
+    })
   }
 
   // 组件卸载时清理定时器
@@ -468,12 +477,15 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
         ref={fileListRef}
         className="relative overflow-hidden rounded-2xl"
         style={{
-          // collapsing 时收起到 150px（loading 卡片高度 ~148px），否则用 hook 的 maxH
-          maxHeight: `${collapsing ? 150 : fileListMaxH}px`,
-          // collapsing 时用 0.4s 快速收起；transitionReady 后才启用过渡（避免初始 0→loading 瞬切）
-          transition: (collapsing || transitionReady)
-            ? `max-height ${collapsing ? 0.4 : 0.9}s cubic-bezier(0.4, 0, 0.2, 1)`
-            : 'none',
+          // maxHeight 优先级：collapseStartH（锁定高度）> collapsing（收起到150）> hook maxH
+          // - 点击文件夹第一帧：collapseStartH=当前高度，collapsing=false
+          //   maxHeight 从 none→collapseStartH（无视觉变化，锁定起点）
+          // - 下一帧：collapsing=true，maxHeight 从 collapseStartH→150（触发收起过渡）
+          // - 非 collapsing 且无 collapseStartH：hook 的 maxH（null=不限制，数字=受控过渡）
+          maxHeight: collapseStartH !== null
+            ? (collapsing ? 148 : collapseStartH)
+            : (fileListMaxH === null ? undefined : `${fileListMaxH}px`),
+          transition: `max-height ${collapsing ? 0.4 : 0.9}s cubic-bezier(0.4, 0, 0.2, 1)`,
         }}
       >
         {/* Loading 层：loading/collapsing 时 in-flow 撑开容器（带毛玻璃背景）；
