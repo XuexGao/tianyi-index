@@ -12,6 +12,7 @@ import { useTranslation } from 'next-i18next'
 import useLocalStorage from '../utils/useLocalStorage'
 import { getPreviewType, preview } from '../utils/getPreviewType'
 import { useProtectedSWRInfinite } from '../utils/fetchWithSWR'
+import { useExpandTransition } from '../utils/useExpandTransition'
 import { getExtension, getRawExtension, getFileIcon } from '../utils/getFileIcon'
 import { getStoredToken } from '../utils/protectedRouteHandler'
 import { resolveDrive, ONEDRIVE_ENABLED, VIRTUAL_ONEDRIVE_FOLDER_ID } from '../utils/driveResolver'
@@ -24,7 +25,7 @@ import {
 } from './MultiFileDownloader'
 
 import { layouts } from './SwitchLayout'
-import Loading, { LoadingIcon } from './Loading'
+import { LoadingIcon } from './Loading'
 import FourOhFour from './FourOhFour'
 import Auth from './Auth'
 import TextPreview from './previews/TextPreview'
@@ -174,6 +175,10 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
 
   const { data, error, size, setSize } = useProtectedSWRInfinite(backendPath, apiBaseTyped)
 
+  // === 文件列表展开动画（loading → measuring → expanding → done）===
+  const isLoading = !data && !error
+  const { ref: fileListRef, phase: filePhase, maxH: fileListMaxH } = useExpandTransition(isLoading)
+
   if (error) {
     return (
       <PreviewContainer>
@@ -185,252 +190,11 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
       </PreviewContainer>
     )
   }
-  if (!data) {
-    return (
-      <PreviewContainer>
-        <Loading loadingText={t('Loading ...')} />
-      </PreviewContainer>
-    )
-  }
 
   const responses: any[] = data ? [].concat(...data) : []
 
-  const isLoadingInitialData = !data && !error
-  const isLoadingMore = isLoadingInitialData || (size > 0 && data && typeof data[size - 1] === 'undefined')
-  const isEmpty = data?.[0]?.length === 0
-  const isReachingEnd = isEmpty || (data && typeof data[data.length - 1]?.next === 'undefined')
-  const onlyOnePage = data && typeof data[0].next === 'undefined'
-
-  if ('folder' in responses[0]) {
-    // Expand list of API returns into flattened file data
-    let folderChildren = [].concat(...responses.map(r => r.folder.value)) as OdFolderObject['value']
-
-    // 在天翼云根目录注入 OneDrive 虚拟文件夹入口
-    // 仅当天翼云挂载在根目录、OneDrive 已启用、且当前是天翼云根目录时注入
-    // 这样点击该虚拟文件夹可自然导航到 /OneDrive（由 getItemPath 拼接得到）
-    if (
-      ONEDRIVE_ENABLED &&
-      drive === 'ty' &&
-      backendPath === '/' &&
-      siteConfig.tianyiMountPath === '/'
-    ) {
-      const odFolderName = siteConfig.onedriveMountPath.split('/').pop() || 'OneDrive'
-      // 避免与天翼云根目录下同名真实文件夹冲突
-      const hasConflict = folderChildren.some(c => c.name === odFolderName)
-      if (!hasConflict) {
-        const virtualOdFolder: OdFolderChildren = {
-          id: VIRTUAL_ONEDRIVE_FOLDER_ID,
-          name: odFolderName,
-          size: 0,
-          lastModifiedDateTime: new Date().toISOString(),
-          folder: { childCount: 0, view: { sortBy: 'name', sortOrder: 'ascending', viewType: 'thumbnails' } },
-        }
-        folderChildren = [virtualOdFolder, ...folderChildren]
-      }
-    }
-
-    // Find README.md / READ.md files to render（两个云盘都支持，都存在时都显示）
-    const readmeFiles = folderChildren.filter(
-      c => c.name.toLowerCase() === 'readme.md' || c.name.toLowerCase() === 'read.md'
-    )
-
-    // Filtered file list helper
-    const getFiles = () => folderChildren.filter(c => !c.folder && c.name !== '.password')
-
-    // File selection
-    const genTotalSelected = (selected: { [key: string]: boolean }) => {
-      const selectInfo = getFiles().map(c => Boolean(selected[c.id]))
-      const [hasT, hasF] = [selectInfo.some(i => i), selectInfo.some(i => !i)]
-      return hasT && hasF ? 1 : !hasF ? 2 : 0
-    }
-
-    const toggleItemSelected = (id: string) => {
-      let val: SetStateAction<{ [key: string]: boolean }>
-      if (selected[id]) {
-        val = { ...selected }
-        delete val[id]
-      } else {
-        val = { ...selected, [id]: true }
-      }
-      setSelected(val)
-      setTotalSelected(genTotalSelected(val))
-    }
-
-    const toggleTotalSelected = () => {
-      if (genTotalSelected(selected) == 2) {
-        setSelected({})
-        setTotalSelected(0)
-      } else {
-        setSelected(Object.fromEntries(getFiles().map(c => [c.id, true])))
-        setTotalSelected(2)
-      }
-    }
-
-    // Selected file download
-    const handleSelectedDownload = () => {
-      const folderName = backendPath.substring(backendPath.lastIndexOf('/') + 1)
-      const folder = folderName ? decodeURIComponent(folderName) : undefined
-      const files = getFiles()
-        .filter(c => selected[c.id])
-        .map(c => ({
-          name: c.name,
-          url: `${apiBaseTyped}/raw/?path=${backendPath}/${encodeURIComponent(c.name)}${hashedToken ? `&odpt=${hashedToken}` : ''}`,
-        }))
-
-      if (files.length == 1) {
-        const el = document.createElement('a')
-        el.style.display = 'none'
-        document.body.appendChild(el)
-        el.href = files[0].url
-        el.click()
-        el.remove()
-      } else if (files.length > 1) {
-        setTotalGenerating(true)
-
-        const toastId = toast.loading(<DownloadingToast router={router} />)
-        downloadMultipleFiles({ toastId, router, files, folder })
-          .then(() => {
-            setTotalGenerating(false)
-            toast.success(t('Finished downloading selected files.'), {
-              id: toastId,
-            })
-          })
-          .catch(() => {
-            setTotalGenerating(false)
-            toast.error(t('Failed to download selected files.'), { id: toastId })
-          })
-      }
-    }
-
-    // Get selected file permalink
-    const handleSelectedPermalink = (baseUrl: string) => {
-      return getFiles()
-        .filter(c => selected[c.id])
-        .map(
-          c =>
-            `${baseUrl}${apiBaseTyped}/raw/?path=${backendPath}/${encodeURIComponent(c.name)}${hashedToken ? `&odpt=${hashedToken}` : ''}`
-        )
-        .join('\n')
-    }
-
-    // Folder recursive download
-    // folderPath 为剥离挂载前缀的后端路径（由布局组件传入）
-    const handleFolderDownload = (folderPath: string, id: string, name?: string) => () => {
-      const files = (async function* () {
-        for await (const { meta: c, path: p, isFolder, error } of traverseFolder(folderPath, apiBaseTyped)) {
-          if (error) {
-            toast.error(
-              t('Failed to download folder {{path}}: {{status}} {{message}} Skipped it to continue.', {
-                path: p,
-                status: error.status,
-                message: error.message,
-              })
-            )
-            continue
-          }
-          const hashedTokenForPath = getStoredToken(p, drive)
-          yield {
-            name: c?.name,
-            url: `${apiBaseTyped}/raw/?path=${p}${hashedTokenForPath ? `&odpt=${hashedTokenForPath}` : ''}`,
-            path: p,
-            isFolder,
-          }
-        }
-      })()
-
-      setFolderGenerating({ ...folderGenerating, [id]: true })
-      const toastId = toast.loading(<DownloadingToast router={router} />)
-
-      downloadTreelikeMultipleFiles({
-        toastId,
-        router,
-        files,
-        basePath: folderPath,
-        folder: name,
-      })
-        .then(() => {
-          setFolderGenerating({ ...folderGenerating, [id]: false })
-          toast.success(t('Finished downloading folder.'), { id: toastId })
-        })
-        .catch(() => {
-          setFolderGenerating({ ...folderGenerating, [id]: false })
-          toast.error(t('Failed to download folder.'), { id: toastId })
-        })
-    }
-
-    // Folder layout component props
-    // path: 浏览器路径（带挂载前缀），用于导航 Link 和复制浏览器 permalink
-    // backendPath: 后端 API 路径（不带挂载前缀），用于 raw URL / thumbnail / getStoredToken / handleFolderDownload
-    // apiBase / drive: 用于布局组件内部构造 API 路径和查私密目录 token
-    const folderProps = {
-      toast,
-      path,
-      backendPath,
-      apiBase: apiBaseTyped,
-      drive,
-      folderChildren,
-      selected,
-      toggleItemSelected,
-      totalSelected,
-      toggleTotalSelected,
-      totalGenerating,
-      handleSelectedDownload,
-      folderGenerating,
-      handleSelectedPermalink,
-      handleFolderDownload,
-    }
-
-    return (
-      <>
-        <Toaster />
-
-        {layout.name === 'Grid' ? <FolderGridLayout {...folderProps} /> : <FolderListLayout {...folderProps} />}
-
-        {!onlyOnePage && (
-          <div className="rounded-b dark:text-gray-100" style={{ backgroundColor: "rgba(255,255,255,0.35)", backdropFilter: "blur(14px)" }}>
-            <div className="border-b border-gray-200 p-3 text-center font-mono text-sm text-gray-400 dark:border-gray-700">
-              {t('- showing {{count}} page(s) ', {
-                count: size,
-                totalFileNum: isLoadingMore ? '...' : folderChildren.length,
-              }) +
-                (isLoadingMore
-                  ? t('of {{count}} file(s) -', { count: folderChildren.length, context: 'loading' })
-                  : t('of {{count}} file(s) -', { count: folderChildren.length, context: 'loaded' }))}
-            </div>
-            <button
-              className={`flex w-full items-center justify-center space-x-2 p-3 disabled:cursor-not-allowed ${
-                isLoadingMore || isReachingEnd ? 'opacity-60' : 'hover:bg-gray-100 dark:hover:bg-gray-850'
-              }`}
-              onClick={() => setSize(size + 1)}
-              disabled={isLoadingMore || isReachingEnd}
-            >
-              {isLoadingMore ? (
-                <>
-                  <LoadingIcon className="inline-block h-4 w-4 animate-spin" />
-                  <span>{t('Loading ...')}</span>{' '}
-                </>
-              ) : isReachingEnd ? (
-                <span>{t('No more files')}</span>
-              ) : (
-                <>
-                  <span>{t('Load more')}</span>
-                  <FontAwesomeIcon icon="chevron-circle-down" />
-                </>
-              )}
-            </button>
-          </div>
-        )}
-
-        {readmeFiles.map(f => (
-          <div className="mt-4" key={f.id}>
-            <MarkdownPreview file={f} path={backendPath} standalone={false} />
-          </div>
-        ))}
-      </>
-    )
-  }
-
-  if ('file' in responses[0] && responses.length === 1) {
+  // === 文件预览（非文件夹），不走列表动画 ===
+  if (data && responses.length > 0 && 'file' in responses[0] && responses.length === 1) {
     const file = responses[0].file as OdFileObject
     const previewType = getPreviewType(getExtension(file.name), { video: Boolean(file.video) })
 
@@ -474,10 +238,284 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
     }
   }
 
+  // data 到了但既不是 folder 也不是 file
+  if (data && responses.length > 0 && !('folder' in responses[0])) {
+    return (
+      <PreviewContainer>
+        <FourOhFour errorMsg={t('Cannot preview {{path}}', { path })} />
+      </PreviewContainer>
+    )
+  }
+
+  // === 文件夹列表（含 loading 态，统一在一个容器里做展开动画）===
+  // folder 相关计算（data 到了才执行，loading 时用默认空值）
+  let folderChildren: OdFolderObject['value'] = []
+  let readmeFiles: OdFolderChildren[] = []
+
+  if (data && responses.length > 0 && 'folder' in responses[0]) {
+    folderChildren = [].concat(...responses.map(r => r.folder.value)) as OdFolderObject['value']
+
+    // 在天翼云根目录注入 OneDrive 虚拟文件夹入口
+    if (
+      ONEDRIVE_ENABLED &&
+      drive === 'ty' &&
+      backendPath === '/' &&
+      siteConfig.tianyiMountPath === '/'
+    ) {
+      const odFolderName = siteConfig.onedriveMountPath.split('/').pop() || 'OneDrive'
+      const hasConflict = folderChildren.some(c => c.name === odFolderName)
+      if (!hasConflict) {
+        const virtualOdFolder: OdFolderChildren = {
+          id: VIRTUAL_ONEDRIVE_FOLDER_ID,
+          name: odFolderName,
+          size: 0,
+          lastModifiedDateTime: new Date().toISOString(),
+          folder: { childCount: 0, view: { sortBy: 'name', sortOrder: 'ascending', viewType: 'thumbnails' } },
+        }
+        folderChildren = [virtualOdFolder, ...folderChildren]
+      }
+    }
+
+    // Find README.md / READ.md files to render
+    readmeFiles = folderChildren.filter(
+      c => c.name.toLowerCase() === 'readme.md' || c.name.toLowerCase() === 'read.md'
+    )
+  }
+
+  // Filtered file list helper
+  const getFiles = () => folderChildren.filter(c => !c.folder && c.name !== '.password')
+
+  // File selection
+  const genTotalSelected = (selected: { [key: string]: boolean }) => {
+    const selectInfo = getFiles().map(c => Boolean(selected[c.id]))
+    const [hasT, hasF] = [selectInfo.some(i => i), selectInfo.some(i => !i)]
+    return hasT && hasF ? 1 : !hasF ? 2 : 0
+  }
+
+  const toggleItemSelected = (id: string) => {
+    let val: SetStateAction<{ [key: string]: boolean }>
+    if (selected[id]) {
+      val = { ...selected }
+      delete val[id]
+    } else {
+      val = { ...selected, [id]: true }
+    }
+    setSelected(val)
+    setTotalSelected(genTotalSelected(val))
+  }
+
+  const toggleTotalSelected = () => {
+    if (genTotalSelected(selected) == 2) {
+      setSelected({})
+      setTotalSelected(0)
+    } else {
+      setSelected(Object.fromEntries(getFiles().map(c => [c.id, true])))
+      setTotalSelected(2)
+    }
+  }
+
+  // Selected file download
+  const handleSelectedDownload = () => {
+    const folderName = backendPath.substring(backendPath.lastIndexOf('/') + 1)
+    const folder = folderName ? decodeURIComponent(folderName) : undefined
+    const files = getFiles()
+      .filter(c => selected[c.id])
+      .map(c => ({
+        name: c.name,
+        url: `${apiBaseTyped}/raw/?path=${backendPath}/${encodeURIComponent(c.name)}${hashedToken ? `&odpt=${hashedToken}` : ''}`,
+      }))
+
+    if (files.length == 1) {
+      const el = document.createElement('a')
+      el.style.display = 'none'
+      document.body.appendChild(el)
+      el.href = files[0].url
+      el.click()
+      el.remove()
+    } else if (files.length > 1) {
+      setTotalGenerating(true)
+
+      const toastId = toast.loading(<DownloadingToast router={router} />)
+      downloadMultipleFiles({ toastId, router, files, folder })
+        .then(() => {
+          setTotalGenerating(false)
+          toast.success(t('Finished downloading selected files.'), {
+            id: toastId,
+          })
+        })
+        .catch(() => {
+          setTotalGenerating(false)
+          toast.error(t('Failed to download selected files.'), { id: toastId })
+        })
+    }
+  }
+
+  // Get selected file permalink
+  const handleSelectedPermalink = (baseUrl: string) => {
+    return getFiles()
+      .filter(c => selected[c.id])
+      .map(
+        c =>
+          `${baseUrl}${apiBaseTyped}/raw/?path=${backendPath}/${encodeURIComponent(c.name)}${hashedToken ? `&odpt=${hashedToken}` : ''}`
+      )
+      .join('\n')
+  }
+
+  // Folder recursive download
+  const handleFolderDownload = (folderPath: string, id: string, name?: string) => () => {
+    const files = (async function* () {
+      for await (const { meta: c, path: p, isFolder, error } of traverseFolder(folderPath, apiBaseTyped)) {
+        if (error) {
+          toast.error(
+            t('Failed to download folder {{path}}: {{status}} {{message}} Skipped it to continue.', {
+              path: p,
+              status: error.status,
+              message: error.message,
+            })
+          )
+          continue
+        }
+        const hashedTokenForPath = getStoredToken(p, drive)
+        yield {
+          name: c?.name,
+          url: `${apiBaseTyped}/raw/?path=${p}${hashedTokenForPath ? `&odpt=${hashedTokenForPath}` : ''}`,
+          path: p,
+          isFolder,
+        }
+      }
+    })()
+
+    setFolderGenerating({ ...folderGenerating, [id]: true })
+    const toastId = toast.loading(<DownloadingToast router={router} />)
+
+    downloadTreelikeMultipleFiles({
+      toastId,
+      router,
+      files,
+      basePath: folderPath,
+      folder: name,
+    })
+      .then(() => {
+        setFolderGenerating({ ...folderGenerating, [id]: false })
+        toast.success(t('Finished downloading folder.'), { id: toastId })
+      })
+      .catch(() => {
+        setFolderGenerating({ ...folderGenerating, [id]: false })
+        toast.error(t('Failed to download folder.'), { id: toastId })
+      })
+  }
+
+  // 分页状态
+  const isLoadingMore = isLoading || (size > 0 && data && typeof data[size - 1] === 'undefined')
+  const isEmpty = data?.[0]?.length === 0
+  const isReachingEnd = isEmpty || (data && typeof data[data.length - 1]?.next === 'undefined')
+  const onlyOnePage = data && typeof data[0].next === 'undefined'
+
+  // Folder layout component props
+  const folderProps = {
+    toast,
+    path,
+    backendPath,
+    apiBase: apiBaseTyped,
+    drive,
+    folderChildren,
+    selected,
+    toggleItemSelected,
+    totalSelected,
+    toggleTotalSelected,
+    totalGenerating,
+    handleSelectedDownload,
+    folderGenerating,
+    handleSelectedPermalink,
+    handleFolderDownload,
+  }
+
   return (
-    <PreviewContainer>
-      <FourOhFour errorMsg={t('Cannot preview {{path}}', { path })} />
-    </PreviewContainer>
+    <>
+      <Toaster />
+
+      {/* 文件列表容器：带展开动画（和 MarkdownPreview 一样的状态机）
+          - loading：显示 Loading 文字（py-16，自带毛玻璃）
+          - measuring/expanding：max-height 平滑过渡，Loading 淡出，内容淡入
+          - done：正常显示 */}
+      <div
+        ref={fileListRef}
+        className="relative overflow-hidden"
+        style={{
+          maxHeight: `${fileListMaxH}px`,
+          transition: 'max-height 0.9s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      >
+        {/* Loading 层：loading 时撑开容器；measuring/expanding 时绝对定位淡出
+            自带毛玻璃背景（和 od-files-container 一致），文字颜色与文件列表一致 */}
+        {filePhase !== 'done' && (
+          <div
+            className={`flex items-center justify-center rounded py-16 text-sm text-gray-700 dark:text-gray-200 ${
+              filePhase === 'measuring' || filePhase === 'expanding' ? 'absolute inset-0' : ''
+            }`}
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.45)',
+              backdropFilter: 'blur(14px)',
+              WebkitBackdropFilter: 'blur(14px)',
+              opacity: filePhase === 'loading' ? 1 : 0,
+              transition: 'opacity 0.4s ease',
+            }}
+          >
+            <LoadingIcon className="mr-3 h-5 w-5 animate-spin" />
+            <span>{t('Loading ...')}</span>
+          </div>
+        )}
+
+        {/* 内容层：measuring 开始渲染（测高度），expanding 淡入，done 正常显示
+            FolderListLayout/FolderGridLayout 自带 od-files-container 毛玻璃 */}
+        {data && filePhase !== 'loading' && (
+          <>
+            {layout.name === 'Grid' ? <FolderGridLayout {...folderProps} /> : <FolderListLayout {...folderProps} />}
+
+            {!onlyOnePage && (
+              <div className="rounded-b dark:text-gray-100" style={{ backgroundColor: "rgba(255,255,255,0.35)", backdropFilter: "blur(14px)" }}>
+                <div className="border-b border-gray-200 p-3 text-center font-mono text-sm text-gray-400 dark:border-gray-700">
+                  {t('- showing {{count}} page(s) ', {
+                    count: size,
+                    totalFileNum: isLoadingMore ? '...' : folderChildren.length,
+                  }) +
+                    (isLoadingMore
+                      ? t('of {{count}} file(s) -', { count: folderChildren.length, context: 'loading' })
+                      : t('of {{count}} file(s) -', { count: folderChildren.length, context: 'loaded' }))}
+                </div>
+                <button
+                  className={`flex w-full items-center justify-center space-x-2 p-3 disabled:cursor-not-allowed ${
+                    isLoadingMore || isReachingEnd ? 'opacity-60' : 'hover:bg-gray-100 dark:hover:bg-gray-850'
+                  }`}
+                  onClick={() => setSize(size + 1)}
+                  disabled={isLoadingMore || isReachingEnd}
+                >
+                  {isLoadingMore ? (
+                    <>
+                      <LoadingIcon className="inline-block h-4 w-4 animate-spin" />
+                      <span>{t('Loading ...')}</span>{' '}
+                    </>
+                  ) : isReachingEnd ? (
+                    <span>{t('No more files')}</span>
+                  ) : (
+                    <>
+                      <span>{t('Load more')}</span>
+                      <FontAwesomeIcon icon="chevron-circle-down" />
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {readmeFiles.map(f => (
+              <div className="mt-4" key={f.id}>
+                <MarkdownPreview file={f} path={backendPath} standalone={false} />
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    </>
   )
 }
 export default FileListing

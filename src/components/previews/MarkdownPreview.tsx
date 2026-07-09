@@ -1,4 +1,4 @@
-import { FC, CSSProperties, ReactNode, useState, useEffect, useRef } from 'react'
+import { FC, CSSProperties, ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -11,6 +11,7 @@ import { tomorrowNight } from 'react-syntax-highlighter/dist/cjs/styles/hljs'
 import 'katex/dist/katex.min.css'
 
 import useFileContent from '../../utils/fetchOnMount'
+import { useExpandTransition } from '../../utils/useExpandTransition'
 import { useRouter } from 'next/router'
 import { getApiBase } from '../../utils/driveResolver'
 import FourOhFour from '../FourOhFour'
@@ -30,69 +31,8 @@ const MarkdownPreview: FC<{
   const { response: content, error, validating } = useFileContent(`${apiBase}/raw/?path=${parentPath}/${file.name}`, path)
   const { t } = useTranslation()
 
-  // === 加载过渡动画状态机 ===
-  // loading：毛玻璃容器 + Loading 文字（py-16，原来一半），测 loading 高度作为过渡起点
-  // measuring：数据到了，渲染内容（opacity 0 不可见但占位），测内容真实高度
-  // expanding：max-height 从 loading 高度 → 内容高度平滑过渡，Loading 淡出，内容淡入
-  // done：过渡完成，正常显示
-  //
-  // 关键：maxH 始终是数字（不用 null/none），否则 max-height: none ↔ 数字之间无法 CSS 过渡。
-  // loading 和 measuring 各测一次高度，保证"加载框比内容大"和"比内容小"两种情况都有动画。
-  const [phase, setPhase] = useState<'loading' | 'measuring' | 'expanding' | 'done'>('loading')
-  const [maxH, setMaxH] = useState<number>(0)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const transitionedRef = useRef(false)
-
-  // 新一次加载（validating 变 true）时回到 loading，maxH 归零触发重新测量
-  useEffect(() => {
-    if (validating) {
-      transitionedRef.current = false
-      setPhase('loading')
-      setMaxH(0)
-    }
-  }, [validating])
-
-  // loading 阶段：测量容器（此时只有 Loading 文字撑开）的实际高度，作为过渡起点
-  useEffect(() => {
-    if (phase === 'loading' && containerRef.current) {
-      const measure = () => {
-        if (containerRef.current && containerRef.current.scrollHeight > 0) {
-          setMaxH(containerRef.current.scrollHeight)
-        }
-      }
-      // 双 rAF：第一帧 React 提交 DOM，第二帧布局完成，测量才准确
-      requestAnimationFrame(() => requestAnimationFrame(measure))
-    }
-  }, [phase])
-
-  // 数据加载完成 → measuring：渲染内容层（opacity 0），下一帧测内容真实高度
-  useEffect(() => {
-    if (!validating && !transitionedRef.current) {
-      transitionedRef.current = true
-      setPhase('measuring')
-    }
-  }, [validating])
-
-  // measuring 阶段：内容已渲染但不可见，测量容器此时（含内容）的实际高度，然后进入 expanding
-  useEffect(() => {
-    if (phase === 'measuring') {
-      const measure = () => {
-        if (containerRef.current) {
-          setMaxH(containerRef.current.scrollHeight)
-          setPhase('expanding')
-        }
-      }
-      requestAnimationFrame(() => requestAnimationFrame(measure))
-    }
-  }, [phase])
-
-  // expanding → done：等过渡动画完成后收尾
-  useEffect(() => {
-    if (phase === 'expanding') {
-      const t = setTimeout(() => setPhase('done'), 900)
-      return () => clearTimeout(t)
-    }
-  }, [phase])
+  // 加载展开过渡动画（loading → measuring → expanding → done）
+  const { ref: containerRef, phase, maxH } = useExpandTransition(validating)
 
   // Check if the image is relative path instead of a absolute url
   const isUrlAbsolute = (url: string | string[]) => url.indexOf('://') > 0 || url.indexOf('//') === 0
