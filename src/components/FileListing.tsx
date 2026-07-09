@@ -437,20 +437,23 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
       {/* 文件列表容器：带展开动画（和 MarkdownPreview 一样的状态机）
           - loading：显示 Loading 文字（py-16，自带毛玻璃）
           - measuring/expanding：max-height 平滑过渡，Loading 淡出，内容淡入
-          - done：正常显示 */}
+          - done：正常显示
+          注意：readme 不在这个容器里，因为 readme 是独立异步加载，measuring 时
+          高度还测不到，放进来会被 maxHeight+overflow:hidden 裁掉点不到 */}
       <div
         ref={fileListRef}
-        className="relative overflow-hidden"
+        className="relative overflow-hidden rounded"
         style={{
           maxHeight: `${fileListMaxH}px`,
           transition: 'max-height 0.9s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
         {/* Loading 层：loading 时撑开容器；measuring/expanding 时绝对定位淡出
-            自带毛玻璃背景（和 od-files-container 一致），文字颜色与文件列表一致 */}
+            自带毛玻璃背景（和 od-files-container 一致），文字颜色与文件列表一致。
+            不设自己的 rounded，继承外层容器的圆角 */}
         {filePhase !== 'done' && (
           <div
-            className={`flex items-center justify-center rounded py-16 text-sm text-gray-700 dark:text-gray-200 ${
+            className={`flex items-center justify-center py-16 text-sm text-gray-700 dark:text-gray-200 ${
               filePhase === 'measuring' || filePhase === 'expanding' ? 'absolute inset-0' : ''
             }`}
             style={{
@@ -506,15 +509,16 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
                 </button>
               </div>
             )}
-
-            {readmeFiles.map(f => (
-              <div className="mt-4" key={f.id}>
-                <MarkdownPreview file={f} path={backendPath} standalone={false} />
-              </div>
-            ))}
           </>
         )}
       </div>
+
+      {/* readme 独立渲染在动画容器外，不受 maxHeight/overflow 限制，避免内容被裁 */}
+      {data && readmeFiles.map(f => (
+        <div className="mt-4" key={f.id}>
+          <MarkdownPreview file={f} path={backendPath} standalone={false} />
+        </div>
+      ))}
     </>
   )
 }
