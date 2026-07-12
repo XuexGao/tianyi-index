@@ -63,6 +63,7 @@ import * as Icons from '@fortawesome/free-brands-svg-icons'
 
 import type { AppProps } from 'next/app'
 import NextNProgress from 'nextjs-progressbar'
+import BackgroundImage from '../components/BackgroundImage'
 import { appWithTranslation } from 'next-i18next'
 
 const iconList = Object.keys(Icons)
@@ -85,10 +86,8 @@ library.add(
 function MyApp({ Component, pageProps }: AppProps) {
   return (
     <>
-      {/* 随机壁纸：用 img 标签比 CSS background-image 更可靠 */}
-      <div id="bg-wallpaper" aria-hidden="true">
-        <img id="bg-wallpaper-img" src="https://api.elaina.cat/random/" alt="" />
-      </div>
+      {/* 随机壁纸：通过同源代理加载，同时拿到亮度数据 */}
+      <BackgroundImage />
 
       <NextNProgress height={1} color="rgb(156, 163, 175, 0.9)" options={{ showSpinner: false }} />
       <Analytics />
