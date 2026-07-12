@@ -4,35 +4,36 @@ import { useEffect, useState } from 'react'
  * 监听背景图亮度变化，返回是否深色背景。
  *
  * 亮度由 BackgroundImage 组件通过 /api/wallpaper 服务端计算，
- * 通过全局事件 'bg-dark-change' 通知。这样保证采样结果和显示的图是同一张。
+ * 通过全局事件 'bg-dark-change' 通知，同时存到 window.__bgDark。
  *
  * 系统暗色模式优先：直接视为深色。
  *
  * @returns isDark 是否深色背景（true=需要浅色文字）
  */
 export function useBackgroundBrightness(): boolean {
-  const [isDark, setIsDark] = useState(false)
+  // 初始化时先读全局，避免错过事件
+  const [isDark, setIsDark] = useState<boolean>(false)
 
   useEffect(() => {
     // 系统暗色模式优先：直接视为深色
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const onMq = (e: MediaQueryListEvent) => setIsDark(e.matches)
     if (mq.matches) {
       setIsDark(true)
-    } else {
-      // 系统非暗色时，监听背景图亮度事件
-      const onBg = (e: Event) => {
-        const detail = (e as CustomEvent).detail
-        setIsDark(Boolean(detail?.isDark))
-      }
-      window.addEventListener('bg-dark-change', onBg)
-      return () => {
-        window.removeEventListener('bg-dark-change', onBg)
-        mq.removeEventListener('change', onMq)
-      }
+      return
     }
-    mq.addEventListener('change', onMq)
-    return () => mq.removeEventListener('change', onMq)
+
+    // 先读全局缓存
+    if ((window as any).__bgDark !== undefined) {
+      setIsDark(Boolean((window as any).__bgDark))
+    }
+
+    // 监听后续变化
+    const onBg = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      setIsDark(Boolean(detail?.isDark))
+    }
+    window.addEventListener('bg-dark-change', onBg)
+    return () => window.removeEventListener('bg-dark-change', onBg)
   }, [])
 
   return isDark
