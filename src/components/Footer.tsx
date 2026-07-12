@@ -100,12 +100,10 @@ function VisitStats() {
 
 const Footer = () => {
   return (
-    <div className="od-footer-wrapper mx-auto w-full max-w-5xl px-3 pb-6 pt-2 sm:px-4">
-      <div className="od-footer-card rounded-2xl p-6 text-center text-sm">
-        <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-1 text-gray-600 dark:text-gray-300">
-          <span>
-            &copy; 2024 - {currentYear}
-          </span>
+    <div className="od-footer-wrapper mx-auto w-full max-w-5xl px-3 pb-4 pt-1 sm:px-4">
+      <div className="od-footer-card rounded-xl px-4 py-2 text-center text-xs leading-relaxed">
+        <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 text-gray-600 dark:text-gray-300">
+          <span>&copy; 2024 - {currentYear}</span>
           <a
             className="font-medium text-blue-500 transition hover:opacity-80"
             target="_blank"
@@ -124,7 +122,6 @@ const Footer = () => {
             CC BY-NC-SA 4.0
           </a>
           <span>许可</span>
-
           <span className="od-footer-divider">/</span>
           <a
             className="font-medium text-blue-500 transition hover:opacity-80"
@@ -145,7 +142,7 @@ const Footer = () => {
           </a>
         </div>
 
-        <div className="mt-1 flex flex-wrap items-center justify-center gap-x-1 gap-y-1 text-gray-600 dark:text-gray-300">
+        <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 text-gray-600 dark:text-gray-300">
           <span>由</span>
           <a
             className="font-medium text-blue-500 transition hover:opacity-80"
@@ -156,11 +153,10 @@ const Footer = () => {
             Next.js
           </a>
           <span>强力驱动</span>
-
           <VisitStats />
         </div>
 
-        <div className="mt-1 flex flex-wrap items-center justify-center gap-x-1 gap-y-1 text-gray-500 dark:text-gray-400">
+        <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 text-gray-600 dark:text-gray-300">
           <span>本网站代码</span>
           <a
             className="font-medium text-blue-500 transition hover:opacity-80"
@@ -171,7 +167,7 @@ const Footer = () => {
             已开源
           </a>
           <a
-            className="ml-1 text-xs text-gray-400 transition hover:text-blue-500 dark:text-gray-500"
+            className="text-gray-600 transition hover:text-blue-500 dark:text-gray-300"
             target="_blank"
             href={`https://github.com/XuexGao/tianyi-index/commit/${commitHash}`}
             rel="noopener noreferrer"

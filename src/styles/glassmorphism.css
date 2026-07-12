@@ -176,15 +176,11 @@ main,
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   background-color: rgba(255, 255, 255, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-  font-size: 13px;
 }
 
 @media (prefers-color-scheme: dark) {
   .od-footer-card {
     background-color: rgba(15, 15, 25, 0.55);
-    border-color: rgba(255, 255, 255, 0.10);
   }
 }
 
