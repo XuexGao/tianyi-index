@@ -13,7 +13,7 @@ export default function Home() {
   const { asPath } = useRouter()
 
   return (
-    <div className="od-page-wrapper flex min-h-screen flex-col items-center justify-center">
+    <div className="od-page-wrapper flex min-h-screen flex-col items-center">
       <Head>
         <title>{siteConfig.title}</title>
       </Head>

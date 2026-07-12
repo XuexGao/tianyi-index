@@ -100,7 +100,7 @@ function VisitStats() {
 
 const Footer = () => {
   return (
-    <div className="od-footer-fixed fixed bottom-0 left-1/2 w-full max-w-[42rem] -translate-x-1/2 px-3 pb-3">
+    <div className="mx-auto w-full max-w-[42rem] px-3 pb-4 sm:px-4">
       <div className="od-footer-card rounded-xl px-4 py-2 text-center text-[11px] leading-relaxed">
         <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 text-gray-600 dark:text-gray-300">
           <span>&copy; 2024 - {currentYear}</span>
