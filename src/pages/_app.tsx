@@ -84,6 +84,7 @@ import {
   faMedium,
   faMastodon,
   faSteam,
+  faMarkdown,
 } from '@fortawesome/free-brands-svg-icons'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 
@@ -120,7 +121,7 @@ const brandIconMap: Record<string, IconDefinition> = {
   steam: faSteam,
 }
 
-// 只注册配置中实际用到的 brand 图标（按需加载，避免全量打包）
+// 只注册配置中实际用到的 brand 图标 + md 文件图标（按需加载，避免全量打包）
 const usedBrandIcons: IconDefinition[] = siteConfig.links
   .map(l => brandIconMap[l.name.toLowerCase()])
   .filter((icon): icon is IconDefinition => Boolean(icon))
@@ -135,6 +136,7 @@ library.add(
   faExternalLinkAlt, faExclamationCircle, faExclamationTriangle,
   faHome, faCheck, faCheckCircle, faSearch, faChevronDown,
   faTh, faThLarge, faThList, faLanguage, faPen, faCube,
+  faMarkdown,
   ...usedBrandIcons
 )
 
