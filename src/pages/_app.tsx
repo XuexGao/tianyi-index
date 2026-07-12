@@ -59,16 +59,71 @@ import {
   faLanguage,
   faCube,
 } from '@fortawesome/free-solid-svg-icons'
-import * as Icons from '@fortawesome/free-brands-svg-icons'
+// 按需 import 常用 brand 图标，避免 import * as Icons 全量打包 500+ 图标
+// 如需新增 brand 图标，在此 import 并加入 brandIconMap 即可
+import {
+  faGithub,
+  faGitlab,
+  faBitbucket,
+  faWeibo,
+  faZhihu,
+  faBilibili,
+  faQq,
+  faWeixin,
+  faTwitter,
+  faFacebook,
+  faInstagram,
+  faLinkedin,
+  faYoutube,
+  faTiktok,
+  faTwitch,
+  faTelegram,
+  faDiscord,
+  faSlack,
+  faReddit,
+  faMedium,
+  faMastodon,
+  faSteam,
+} from '@fortawesome/free-brands-svg-icons'
+import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 
 import type { AppProps } from 'next/app'
 import NextNProgress from 'nextjs-progressbar'
 import BackgroundImage from '../components/BackgroundImage'
 import { appWithTranslation } from 'next-i18next'
+import siteConfig from '../../config/site.config'
 
-const iconList = Object.keys(Icons)
-  .filter(k => k !== 'fab' && k !== 'prefix')
-  .map(icon => Icons[icon])
+// 常用 brand 图标映射：key 是 siteConfig.links 里 name 的小写形式
+const brandIconMap: Record<string, IconDefinition> = {
+  github: faGithub,
+  gitlab: faGitlab,
+  bitbucket: faBitbucket,
+  weibo: faWeibo,
+  zhihu: faZhihu,
+  bilibili: faBilibili,
+  qq: faQq,
+  weixin: faWeixin,
+  wechat: faWeixin,
+  twitter: faTwitter,
+  facebook: faFacebook,
+  instagram: faInstagram,
+  linkedin: faLinkedin,
+  youtube: faYoutube,
+  tiktok: faTiktok,
+  twitch: faTwitch,
+  telegram: faTelegram,
+  discord: faDiscord,
+  slack: faSlack,
+  reddit: faReddit,
+  medium: faMedium,
+  mastodon: faMastodon,
+  steam: faSteam,
+}
+
+// 只注册配置中实际用到的 brand 图标（按需加载，避免全量打包）
+const usedBrandIcons: IconDefinition[] = siteConfig.links
+  .map(l => brandIconMap[l.name.toLowerCase()])
+  .filter((icon): icon is IconDefinition => Boolean(icon))
 
 library.add(
   faFileImage, faFilePdf, faFileWord, faFilePowerpoint, faFileExcel,
@@ -80,7 +135,7 @@ library.add(
   faExternalLinkAlt, faExclamationCircle, faExclamationTriangle,
   faHome, faCheck, faCheckCircle, faSearch, faChevronDown,
   faTh, faThLarge, faThList, faLanguage, faPen, faCube,
-  ...iconList
+  ...usedBrandIcons
 )
 
 function MyApp({ Component, pageProps }: AppProps) {

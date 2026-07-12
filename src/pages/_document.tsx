@@ -15,6 +15,9 @@ class MyDocument extends Document {
           <link rel="dns-prefetch" href="//fonts.googleapis.com" />
           <link rel="dns-prefetch" href="//fonts.gstatic.com" />
 
+          {/* 背景图预加载：HTML 解析阶段就发起，比 JS 加载早，首屏加速关键 */}
+          <link rel="preload" as="image" href="/api/wallpaper/" fetchpriority="high" />
+
           {/* LXGW WenKai Font */}
           <link
             rel="stylesheet"
