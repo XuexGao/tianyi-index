@@ -87,7 +87,7 @@ function MyApp({ Component, pageProps }: AppProps) {
     <>
       {/* 随机壁纸：用 img 标签比 CSS background-image 更可靠 */}
       <div id="bg-wallpaper" aria-hidden="true">
-        <img id="bg-wallpaper-img" src="/api/wallpaper/" alt="" crossOrigin="anonymous" />
+        <img id="bg-wallpaper-img" src="https://api.elaina.cat/random/" alt="" />
       </div>
 
       <NextNProgress height={1} color="rgb(156, 163, 175, 0.9)" options={{ showSpinner: false }} />

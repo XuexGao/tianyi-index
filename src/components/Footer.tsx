@@ -111,6 +111,16 @@ const Footer = () => {
           >
             XuexGao
           </a>
+          <span>，采用</span>
+          <a
+            className="font-medium text-blue-500 transition hover:opacity-80"
+            target="_blank"
+            href="https://creativecommons.org/licenses/by-nc-sa/4.0/"
+            rel="noopener noreferrer"
+          >
+            CC BY-NC-SA 4.0
+          </a>
+          <span>许可</span>
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 text-gray-600 dark:text-gray-300">
@@ -147,9 +157,6 @@ const Footer = () => {
           >
             已开源
           </a>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 text-gray-600 dark:text-gray-300">
           <a
             className="text-[10px] text-gray-600 transition hover:text-blue-500 dark:text-gray-300"
             target="_blank"

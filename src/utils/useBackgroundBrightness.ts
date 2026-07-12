@@ -3,11 +3,12 @@ import { useEffect, useState } from 'react'
 /**
  * 采样背景图顶部区域亮度，返回是否深色背景。
  *
- * 原理：背景图加载完成后，画到 canvas，取顶部条带（navbar 区域）
- * 的像素平均亮度。亮度 < 阈值则视为深色背景，需要浅色文字。
- *
- * 要求背景图 img 带 crossOrigin="anonymous" 且服务端返回 CORS 头，
- * 否则 canvas 会被 tainted，getImageData 抛错，降级为 false（默认深色文字）。
+ * 实现说明：
+ * - 主壁纸图直连外部源（快），不走代理，避免拖慢加载
+ * - 采样时单独通过同源代理 /api/wallpaper/ 加载一张图，
+ *   带 crossOrigin 让 canvas 可读，采样顶部条带平均亮度
+ * - 采样是辅助功能，慢一点不影响主图显示
+ * - 系统暗色模式优先，直接视为深色
  *
  * @returns isDark 是否深色背景（true=需要浅色文字）
  */
@@ -15,17 +16,17 @@ export function useBackgroundBrightness(): boolean {
   const [isDark, setIsDark] = useState(false)
 
   useEffect(() => {
-    // 系统暗色模式优先：直接视为深色，文字用浅色
+    // 系统暗色模式优先：直接视为深色
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     if (mq.matches) {
       setIsDark(true)
       return
     }
 
-    const img = document.getElementById('bg-wallpaper-img') as HTMLImageElement | null
-    if (!img) return
-
-    const sample = () => {
+    // 通过同源代理异步加载图片用于采样
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
       try {
         const w = img.naturalWidth
         const h = img.naturalHeight
@@ -52,19 +53,16 @@ export function useBackgroundBrightness(): boolean {
           total += 0.299 * r + 0.587 * g + 0.114 * b
         }
         const avg = total / pixels
-        // 阈值 128：低于视为深色背景
-        setIsDark(avg < 128)
+        // 阈值 100：较暗才算深色背景，避免误判
+        setIsDark(avg < 100)
       } catch (e) {
-        // canvas tainted 或其他错误，降级为默认（不深色）
         console.warn('[bg-brightness]', e)
       }
     }
-
-    if (img.complete && img.naturalWidth > 0) {
-      sample()
-    } else {
-      img.addEventListener('load', sample, { once: true })
+    img.onerror = () => {
+      // 采样失败，降级为默认
     }
+    img.src = '/api/wallpaper/'
   }, [])
 
   return isDark
