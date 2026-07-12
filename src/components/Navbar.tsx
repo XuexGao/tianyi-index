@@ -21,8 +21,10 @@ const Navbar = () => {
 
   // 采样背景图顶部亮度，深色背景时 navbar 文字自动变浅
   const bgDark = useBackgroundBrightness()
-  // 文字颜色：深色背景或系统暗色模式都用浅色
-  const textColor = bgDark ? 'text-white' : 'text-gray-700'
+  // 文字颜色：深色背景或系统暗色模式都用浅色（gray-200 比 white 柔和）
+  const textColor = bgDark ? 'text-gray-200' : 'text-gray-700'
+  // 图标是位图，深色背景时反色让它可见
+  const iconFilter = bgDark ? 'invert(1)' : 'none'
 
   useEffect(() => {
     const storedToken = () => {
@@ -53,12 +55,12 @@ const Navbar = () => {
 
   const icon = siteConfig.icon;
   let IconComponent;
-  let iconProps = {};
+  let iconProps: any = {};
 
   if (icon.startsWith('/')) {
     // If the icon is a URL, use the Image component
     IconComponent = Image;
-    iconProps = { src: icon, alt: 'icon', width: '16', height: '16', priority: true };
+    iconProps = { src: icon, alt: 'icon', width: '16', height: '16', priority: true, style: { filter: iconFilter } };
   } else {
     // If the icon is a FontAwesome icon name, use the FontAwesomeIcon component
     if (!icon.includes('-')) {

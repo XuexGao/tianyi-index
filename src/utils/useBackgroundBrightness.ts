@@ -15,6 +15,13 @@ export function useBackgroundBrightness(): boolean {
   const [isDark, setIsDark] = useState(false)
 
   useEffect(() => {
+    // 系统暗色模式优先：直接视为深色，文字用浅色
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    if (mq.matches) {
+      setIsDark(true)
+      return
+    }
+
     const img = document.getElementById('bg-wallpaper-img') as HTMLImageElement | null
     if (!img) return
 
