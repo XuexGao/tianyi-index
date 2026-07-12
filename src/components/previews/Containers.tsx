@@ -3,8 +3,8 @@ export function PreviewContainer({ children }): JSX.Element {
     <div className="rounded-2xl p-3 shadow-sm"
       style={{
         backgroundColor: 'rgba(255, 255, 255, 0.45)',
-        backdropFilter: 'blur(14px)',
-        WebkitBackdropFilter: 'blur(14px)',
+        backdropFilter: 'var(--glass-blur)',
+        WebkitBackdropFilter: 'var(--glass-blur)',
       }}
     >
       {children}
@@ -22,8 +22,8 @@ export function DownloadBtnContainer({ children }): JSX.Element {
         className="rounded-2xl border border-gray-900/10 p-2 shadow-sm dark:border-gray-500/30"
         style={{
           backgroundColor: 'rgba(255, 255, 255, 0.55)',
-          backdropFilter: 'blur(14px)',
-          WebkitBackdropFilter: 'blur(14px)',
+          backdropFilter: 'var(--glass-blur)',
+          WebkitBackdropFilter: 'var(--glass-blur)',
         }}
       >
         {children}

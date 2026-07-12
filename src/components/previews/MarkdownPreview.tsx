@@ -140,8 +140,8 @@ const MarkdownPreview: FC<{
         className="relative overflow-hidden rounded-2xl p-3 shadow-sm"
         style={{
           backgroundColor: 'rgba(255, 255, 255, 0.45)',
-          backdropFilter: 'blur(14px)',
-          WebkitBackdropFilter: 'blur(14px)',
+          backdropFilter: 'var(--glass-blur)',
+          WebkitBackdropFilter: 'var(--glass-blur)',
           maxHeight: `${maxH}px`,
           transition: 'max-height 0.9s cubic-bezier(0.4, 0, 0.2, 1)',
         }}

@@ -64,8 +64,8 @@ const SwitchLang = () => {
             className="absolute top-0 right-0 z-20 mt-8 w-28 divide-y divide-gray-900/10 overflow-auto rounded-2xl py-1 shadow-lg focus:outline-none dark:text-white"
             style={{
               backgroundColor: 'rgba(255,255,255,0.55)',
-              backdropFilter: 'blur(14px)',
-              WebkitBackdropFilter: 'blur(14px)',
+              backdropFilter: 'var(--glass-blur)',
+              WebkitBackdropFilter: 'var(--glass-blur)',
               border: 'none',
             }}
           >

@@ -7,7 +7,7 @@
 :root {
   --glass-bg-light: rgba(255, 255, 255, 0.50);
   --glass-bg-dark:  rgba(10, 10, 20, 0.50);
-  --glass-blur:     blur(14px);
+  --glass-blur:     blur(20px);
   --glass-border-light: rgba(255, 255, 255, 0.45);
   --glass-border-dark:  rgba(255, 255, 255, 0.08);
   --main-font: "LXGW WenKai", "Inter", sans-serif;
@@ -69,8 +69,8 @@ main,
 /* ---------- Breadcrumb bar frosted glass ---------- */
 .od-breadcrumb-bar {
   background-color: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   border: none;
 }
 
@@ -151,8 +151,8 @@ main,
 }
 
 .od-modal-content {
-  backdrop-filter: blur(18px) !important;
-  -webkit-backdrop-filter: blur(18px) !important;
+  backdrop-filter: var(--glass-blur) !important;
+  -webkit-backdrop-filter: var(--glass-blur) !important;
   background-color: rgba(255, 255, 255, 0.60) !important;
   border: 1px solid rgba(255, 255, 255, 0.50) !important;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.14) !important;
@@ -173,8 +173,8 @@ main,
 
 /* ---------- Footer Card ---------- */
 .od-footer-card {
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   background-color: rgba(255, 255, 255, 0.35);
 }
 

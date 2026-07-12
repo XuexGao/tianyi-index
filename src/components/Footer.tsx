@@ -158,7 +158,7 @@ const Footer = () => {
             已开源
           </a>
           <a
-            className="text-gray-600 transition hover:text-blue-500 dark:text-gray-300"
+            className="text-[10px] text-gray-600 transition hover:text-blue-500 dark:text-gray-300"
             target="_blank"
             href={`https://github.com/XuexGao/tianyi-index/commit/${commitHash}`}
             rel="noopener noreferrer"

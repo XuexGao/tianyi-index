@@ -62,8 +62,8 @@
   line-height: 1.5;
   color: #24292e;
   background-color: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   border-radius: 0.75rem;
   font-size: 16px;
   line-height: 1.5;
@@ -996,8 +996,8 @@
     /* background-color: #0d1117; */
     color: #f3f4f6;
     background-color: rgba(15, 15, 25, 0.50);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
     border-radius: 0.75rem;
   }
   .markdown-body a {
