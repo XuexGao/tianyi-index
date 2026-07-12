@@ -11,12 +11,18 @@ import { useTranslation } from 'next-i18next'
 
 import siteConfig from '../../config/site.config'
 import SwitchLang from './SwitchLang'
+import { useBackgroundBrightness } from '../utils/useBackgroundBrightness'
 
 const Navbar = () => {
   const router = useRouter()
 
   const [tokenPresent, setTokenPresent] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
+
+  // 采样背景图顶部亮度，深色背景时 navbar 文字自动变浅
+  const bgDark = useBackgroundBrightness()
+  // 文字颜色：深色背景或系统暗色模式都用浅色
+  const textColor = bgDark ? 'text-white' : 'text-gray-700'
 
   useEffect(() => {
     const storedToken = () => {
@@ -69,13 +75,13 @@ const Navbar = () => {
       <Toaster />
 
       <div className="mx-auto flex w-full items-center justify-between space-x-4 px-4 py-1">
-        <Link href="/" passHref className="flex items-center space-x-2 py-2 hover:opacity-80 dark:text-white md:p-2">
+        <Link href="/" passHref className={`flex items-center space-x-2 py-2 hover:opacity-80 md:p-2 ${textColor} dark:text-white`}>
           {/*<Image src={siteConfig.icon} alt="icon" width="25" height="25" priority />*/}
           <IconComponent {...iconProps} />
           <span className="font-bold">{siteConfig.title}</span>
         </Link>
 
-        <div className="flex items-center space-x-4 text-gray-700 ml-auto">
+        <div className={`flex items-center space-x-4 ml-auto ${textColor} dark:text-white`}>
           <SwitchLang />
 
           {siteConfig.links.length !== 0 &&
@@ -85,7 +91,7 @@ const Navbar = () => {
                 href={l.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center space-x-2 hover:opacity-80 dark:text-white"
+                className="flex items-center space-x-2 hover:opacity-80"
               >
                 <FontAwesomeIcon icon={['fab', l.name.toLowerCase() as IconName]} />
                 {/*<span className="hidden text-sm font-medium md:inline-block">
@@ -99,7 +105,7 @@ const Navbar = () => {
             ))}
 
           {siteConfig.email && (
-            <a href={siteConfig.email} className="flex items-center space-x-2 hover:opacity-80 dark:text-white">
+            <a href={siteConfig.email} className="flex items-center space-x-2 hover:opacity-80">
               <FontAwesomeIcon icon={['far', 'envelope']} />
               {/*<span className="hidden text-sm font-medium md:inline-block">{t('Email')}</span>*/}
             </a>
@@ -107,7 +113,7 @@ const Navbar = () => {
 
           {tokenPresent && (
             <button
-              className="flex items-center space-x-2 hover:opacity-80 dark:text-white"
+              className="flex items-center space-x-2 hover:opacity-80"
               onClick={() => setIsOpen(true)}
             >
               <span className="hidden text-sm font-medium md:inline-block">{t('Logout')}</span>
