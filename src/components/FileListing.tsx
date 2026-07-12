@@ -179,7 +179,16 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
   const isLoading = !data && !error
   const { ref: fileListRef, phase: filePhase, maxH: fileListMaxH } = useExpandTransition(isLoading)
 
-  if (error) {
+  // 天翼云根目录超时/出错时，仍保留 OneDrive 虚拟文件夹入口，错误信息放 README 位置
+  const tyErrorWithOd =
+    error &&
+    error.status !== 401 &&
+    ONEDRIVE_ENABLED &&
+    drive === 'ty' &&
+    backendPath === '/' &&
+    siteConfig.tianyiMountPath === '/'
+
+  if (error && !tyErrorWithOd) {
     return (
       <PreviewContainer>
         {error.status === 401 ? (
@@ -252,7 +261,18 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
   let folderChildren: OdFolderObject['value'] = []
   let readmeFiles: OdFolderChildren[] = []
 
-  if (data && responses.length > 0 && 'folder' in responses[0]) {
+  // 天翼云根目录出错时，构造只含 OneDrive 虚拟文件夹的列表，保留入口
+  if (tyErrorWithOd) {
+    const odFolderName = siteConfig.onedriveMountPath.split('/').pop() || 'OneDrive'
+    const virtualOdFolder: OdFolderChildren = {
+      id: VIRTUAL_ONEDRIVE_FOLDER_ID,
+      name: odFolderName,
+      size: 0,
+      lastModifiedDateTime: new Date().toISOString(),
+      folder: { childCount: 0, view: { sortBy: 'name', sortOrder: 'ascending', viewType: 'thumbnails' } },
+    }
+    folderChildren = [virtualOdFolder]
+  } else if (data && responses.length > 0 && 'folder' in responses[0]) {
     folderChildren = [].concat(...responses.map(r => r.folder.value)) as OdFolderObject['value']
 
     // 在天翼云根目录注入 OneDrive 虚拟文件夹入口
@@ -471,7 +491,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
 
         {/* 内容层：measuring 开始渲染（测高度），expanding 淡入，done 正常显示
             FolderListLayout/FolderGridLayout 自带 od-files-container 毛玻璃 */}
-        {data && filePhase !== 'loading' && (
+        {(data || tyErrorWithOd) && filePhase !== 'loading' && (
           <>
             {layout.name === 'Grid' ? <FolderGridLayout {...folderProps} /> : <FolderListLayout {...folderProps} />}
 
@@ -519,6 +539,20 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
           <MarkdownPreview file={f} path={backendPath} standalone={false} />
         </div>
       ))}
+
+      {/* 天翼云超时/出错时，错误信息卡片放在 README 位置 */}
+      {tyErrorWithOd && (
+        <div className="mt-4">
+          <PreviewContainer>
+            <div className="mb-2 text-sm font-bold text-gray-600 dark:text-gray-300">
+              {t('TianYi cloud connection failed')}
+            </div>
+            <div className="overflow-hidden break-all rounded border border-gray-400/20 bg-gray-50 p-2 font-mono text-xs dark:bg-gray-800">
+              {JSON.stringify(error.message)}
+            </div>
+          </PreviewContainer>
+        </div>
+      )}
     </>
   )
 }
