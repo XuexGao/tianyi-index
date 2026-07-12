@@ -171,59 +171,31 @@ main,
   background-color: transparent !important;
 }
 
-/* ---------- Umami Stats Footer Widget ---------- */
-#umami-footer {
-  position: fixed;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 999;
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  padding: 7px 20px;
-  border-radius: 999px;
+/* ---------- Footer Card ---------- */
+.od-footer-card {
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   background-color: rgba(255, 255, 255, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.45);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   font-size: 13px;
-  color: #444;
-  white-space: nowrap;
-  opacity: 1;
-  transition: opacity 0.6s ease, transform 0.6s ease;
-  font-family: var(--main-font) !important;
-}
-
-#umami-footer.hidden {
-  opacity: 0;
-  transform: translateX(-50%) translateY(80px);
-  pointer-events: none;
-}
-
-/* 入口动画：初始在屏幕下方，进入后弹出 */
-#umami-footer.umami-enter {
-  opacity: 0;
-  transform: translateX(-50%) translateY(80px);
-  pointer-events: none;
 }
 
 @media (prefers-color-scheme: dark) {
-  #umami-footer {
+  .od-footer-card {
     background-color: rgba(15, 15, 25, 0.55);
     border-color: rgba(255, 255, 255, 0.10);
-    color: #ccc;
   }
 }
 
-#umami-footer span {
-  display: flex;
-  align-items: center;
-  gap: 5px;
+/* 分隔符：行内小斜杠 */
+.od-footer-divider {
+  color: rgba(100, 116, 139, 0.5);
+  margin: 0 2px;
 }
 
-#umami-footer b {
+/* 访问量统计：嵌入底栏内 */
+.od-footer-stats b {
   color: #409EFF;
 }
 

@@ -1,10 +1,39 @@
 const { i18n } = require('./next-i18next.config')
+const { execSync } = require('child_process')
+
+// 构建期一次性获取 git 信息，注入到 process.env 供前端组件读取
+let gitCommitHash = 'unknown'
+let buildDate = 'unknown'
+try {
+  gitCommitHash = execSync('git rev-parse --short=7 HEAD').toString().trim()
+  const date = new Date()
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
+  const pad = (t) => parts.find(p => p.type === t)?.value ?? '00'
+  buildDate = `${pad('year')}-${pad('month')}-${pad('day')} ${pad('hour')}:${pad('minute')}:${pad('second')}`
+} catch (e) {
+  // 静默忽略：构建环境无 git 时用默认值
+}
 
 module.exports = {
   i18n,
   reactStrictMode: true,
   // Required by Next i18n with API routes, otherwise API routes 404 when fetching without trailing slash
   trailingSlash: true,
+
+  // 注入构建期 git 信息，供 Footer 等前端组件读取
+  env: {
+    NEXT_PUBLIC_GIT_COMMIT_HASH: gitCommitHash,
+    NEXT_PUBLIC_BUILD_DATE: buildDate,
+  },
 
   // 性能优化
   poweredByHeader: false,
