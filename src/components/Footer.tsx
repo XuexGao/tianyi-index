@@ -43,25 +43,32 @@ function VisitStats() {
         const startOfDay = new Date()
         startOfDay.setHours(0, 0, 0, 0)
         const tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)
-        const headers = { 'x-umami-share-token': token }
+        // v3.2.0 必须带 x-umami-share-context: 1，否则 401
+        const headers = {
+          'x-umami-share-token': token,
+          'x-umami-share-context': '1',
+        }
 
         const [todayRes, totalRes] = await Promise.all([
           fetch(
-            `${baseUrl}/api/websites/${wid}/stats?startAt=${startOfDay.getTime()}&endAt=${now}&unit=hour&timezone=${tz}&compare=false`,
+            `${baseUrl}/api/websites/${wid}/stats?startAt=${startOfDay.getTime()}&endAt=${now}&timezone=${tz}`,
             { headers }
           ),
           fetch(
-            `${baseUrl}/api/websites/${wid}/stats?startAt=0&endAt=${now}&unit=hour&timezone=${tz}&compare=false`,
+            `${baseUrl}/api/websites/${wid}/stats?startAt=0&endAt=${now}&timezone=${tz}`,
             { headers }
           ),
         ])
         if (todayRes.ok) {
           const d = await todayRes.json()
-          animateValue(setToday, d.pageviews?.value ?? d.pageviews ?? 0)
+          // v3.2.0: pageviews 直接是数字；旧版: { value, prev }
+          const v = typeof d.pageviews === 'number' ? d.pageviews : d.pageviews?.value ?? 0
+          animateValue(setToday, v)
         }
         if (totalRes.ok) {
           const d = await totalRes.json()
-          animateValue(setTotal, d.pageviews?.value ?? d.pageviews ?? 0)
+          const v = typeof d.pageviews === 'number' ? d.pageviews : d.pageviews?.value ?? 0
+          animateValue(setTotal, v)
         }
       } catch (e) {
         console.warn('[umami-footer]', e)
