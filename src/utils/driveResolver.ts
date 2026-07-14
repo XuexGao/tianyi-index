@@ -50,6 +50,19 @@ function getIsAdmin(): boolean {
 }
 
 /**
+ * 将挂载路径的每一段用 encodeURIComponent 编码，得到与 router.asPath 一致的编码形式。
+ * router.asPath 对非 ASCII 字符（如中文「天翼云盘」）返回 percent-encoded 形式，
+ * 而 mountPath 配置是 decoded 形式，比较前必须统一到 encoded。
+ */
+function encodeMountPath(mountPath: string): string {
+  if (mountPath === '/') return '/'
+  return mountPath
+    .split('/')
+    .map(s => encodeURIComponent(s))
+    .join('/')
+}
+
+/**
  * 判断 urlPath 是否落在某个挂载点下（component-by-component）
  * mountPath='/' 表示根目录，任何路径都匹配
  */
@@ -57,8 +70,9 @@ function pathStartsWithMount(urlPath: string, mountPath: string): boolean {
   if (mountPath === '/') return true
   // 标准化：确保都以 / 开头
   const p = urlPath.startsWith('/') ? urlPath : '/' + urlPath
-  // 完全等于挂载点，或以 挂载点 + / 开头
-  return p === mountPath || p.startsWith(mountPath + '/')
+  // mountPath 编码后再比较（router.asPath 是 encoded 形式）
+  const m = encodeMountPath(mountPath)
+  return p === m || p.startsWith(m + '/')
 }
 
 /**
@@ -69,9 +83,10 @@ function pathStartsWithMount(urlPath: string, mountPath: string): boolean {
 function stripMount(urlPath: string, mountPath: string): string {
   const p = urlPath.startsWith('/') ? urlPath : '/' + urlPath
   if (mountPath === '/') return p === '' ? '/' : p
-  if (p === mountPath) return '/'
-  // p 以 mountPath + '/' 开头
-  return p.slice(mountPath.length) || '/'
+  const m = encodeMountPath(mountPath)
+  if (p === m) return '/'
+  // p 以 m + '/' 开头
+  return p.slice(m.length) || '/'
 }
 
 /**
