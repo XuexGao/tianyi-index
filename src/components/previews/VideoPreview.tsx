@@ -11,7 +11,7 @@ import { useAsync } from 'react-async-hook'
 import { useClipboard } from 'use-clipboard-copy'
 
 import { getBaseUrl } from '../../utils/getBaseUrl'
-import { resolveDrive } from '../../utils/driveResolver'
+import { resolveDrive, normalizeDrive } from '../../utils/driveResolver'
 import { getExtension } from '../../utils/getFileIcon'
 import { getStoredToken } from '../../utils/protectedRouteHandler'
 
@@ -75,7 +75,7 @@ const VideoPreview: FC<{ file: OdFileObject }> = ({ file }) => {
   const { asPath } = useRouter()
   const { apiBase, relPath, drive } = resolveDrive(asPath)
   const backendPath = relPath === '' ? '/' : relPath
-  const hashedToken = getStoredToken(backendPath, drive)
+  const hashedToken = getStoredToken(backendPath, normalizeDrive(drive))
   const clipboard = useClipboard()
 
   const [menuOpen, setMenuOpen] = useState(false)
@@ -102,7 +102,7 @@ const VideoPreview: FC<{ file: OdFileObject }> = ({ file }) => {
       <CustomEmbedLinkMenu
         backendPath={backendPath}
         apiBase={apiBase}
-        drive={drive}
+        drive={normalizeDrive(drive)}
         menuOpen={menuOpen}
         setMenuOpen={setMenuOpen}
       />

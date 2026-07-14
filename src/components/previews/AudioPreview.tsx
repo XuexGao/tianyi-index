@@ -5,7 +5,7 @@ import ReactAudioPlayer from 'react-audio-player'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useTranslation } from 'next-i18next'
 import { useRouter } from 'next/router'
-import { resolveDrive } from '../../utils/driveResolver'
+import { resolveDrive, normalizeDrive } from '../../utils/driveResolver'
 
 import DownloadButtonGroup from '../DownloadBtnGtoup'
 import { DownloadBtnContainer, PreviewContainer } from './Containers'
@@ -25,7 +25,7 @@ const AudioPreview: FC<{ file: OdFileObject }> = ({ file }) => {
   const { asPath } = useRouter()
   const { apiBase, relPath, drive } = resolveDrive(asPath)
   const backendPath = relPath === '' ? '/' : relPath
-  const hashedToken = getStoredToken(backendPath, drive)
+  const hashedToken = getStoredToken(backendPath, normalizeDrive(drive))
 
   const rapRef = useRef<ReactAudioPlayer>(null)
   const [playerStatus, setPlayerStatus] = useState(PlayerState.Loading)

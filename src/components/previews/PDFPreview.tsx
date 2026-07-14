@@ -1,6 +1,6 @@
 import { useRouter } from 'next/router'
 import { getBaseUrl } from '../../utils/getBaseUrl'
-import { resolveDrive } from '../../utils/driveResolver'
+import { resolveDrive, normalizeDrive } from '../../utils/driveResolver'
 import { getStoredToken } from '../../utils/protectedRouteHandler'
 import DownloadButtonGroup from '../DownloadBtnGtoup'
 import { DownloadBtnContainer } from './Containers'
@@ -9,7 +9,7 @@ const PDFEmbedPreview: React.FC<{ file: any }> = ({ file }) => {
   const { asPath } = useRouter()
   const { apiBase, relPath, drive } = resolveDrive(asPath)
   const backendPath = relPath === '' ? '/' : relPath
-  const hashedToken = getStoredToken(backendPath, drive)
+  const hashedToken = getStoredToken(backendPath, normalizeDrive(drive))
 
   const pdfPath = encodeURIComponent(
     `${getBaseUrl()}${apiBase}/raw/?path=${backendPath}${hashedToken ? `&odpt=${hashedToken}` : ''}`

@@ -29,6 +29,8 @@ export function useProtectedSWRInfinite(path: string = '', apiBase: string = '/a
   const hashedToken = getStoredToken(path, driveFromApiBase(apiBase))
 
   function getNextKey(pageIndex: number, previousPageData: OdAPIResponse): (string | null)[] | null {
+    // path 为空字符串时视为虚拟根，不发起请求
+    if (path === '') return null
     if (previousPageData && !previousPageData.folder) return null
     if (pageIndex === 0) return [`${apiBase}/?path=${path}`, hashedToken]
     return [`${apiBase}/?path=${path}&next=${previousPageData.next}`, hashedToken]

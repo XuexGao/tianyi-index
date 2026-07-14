@@ -48,6 +48,16 @@ module.exports = {
         source: '/api/:path((?!ty/|od/|config).*)',
         destination: '/api/ty/:path*',
       },
+      // 管理员路由：/@login 和 /@manage 映射到实际页面文件
+      // （@ 在 Next.js 路由中有 parallel routes 含义，不能直接用作文件名）
+      {
+        source: '/@login',
+        destination: '/_admin-login',
+      },
+      {
+        source: '/@manage',
+        destination: '/_admin-manage',
+      },
     ]
   },
 

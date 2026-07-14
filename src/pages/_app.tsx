@@ -93,6 +93,7 @@ import NextNProgress from 'nextjs-progressbar'
 import BackgroundImage from '../components/BackgroundImage'
 import { appWithTranslation } from 'next-i18next'
 import siteConfig from '../../config/site.config'
+import { useIsAdmin } from '../utils/useIsAdmin'
 
 // 常用 brand 图标映射：key 是 siteConfig.links 里 name 的小写形式
 const brandIconMap: Record<string, IconDefinition> = {
@@ -141,13 +142,16 @@ library.add(
 )
 
 function MyApp({ Component, pageProps }: AppProps) {
+  // 管理员登录后不加载统计代码（Vercel Analytics）
+  const isAdmin = useIsAdmin()
+
   return (
     <>
       {/* 随机壁纸：通过同源代理加载，同时拿到亮度数据 */}
       <BackgroundImage />
 
       <NextNProgress height={1} color="rgb(156, 163, 175, 0.9)" options={{ showSpinner: false }} />
-      <Analytics />
+      {!isAdmin && <Analytics />}
       <Component {...pageProps} />
     </>
   )

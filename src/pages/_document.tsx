@@ -1,8 +1,22 @@
 import Document, { Head, Html, Main, NextScript } from 'next/document'
+import type { DocumentContext } from 'next/document'
 import siteConfig from '../../config/site.config'
+import { ADMIN_COOKIE_NAME } from '../utils/adminAuth'
 
-class MyDocument extends Document {
+class MyDocument extends Document<{ isAdmin: boolean }> {
+  static async getInitialProps(ctx: DocumentContext) {
+    const initialProps = await Document.getInitialProps(ctx)
+    // 从请求 cookie 判断是否管理员登录，登录后不加载 Umami 统计脚本
+    const cookieHeader = ctx.req?.headers?.cookie || ''
+    const isAdmin = cookieHeader
+      .split(';')
+      .some(part => part.trim().startsWith(`${ADMIN_COOKIE_NAME}=`))
+    return { ...initialProps, isAdmin }
+  }
+
   render() {
+    const { isAdmin } = this.props
+
     return (
       <Html>
         <Head>
@@ -28,14 +42,16 @@ class MyDocument extends Document {
             <link key={link} rel="stylesheet" href={link} />
           ))}
 
-          {/* Umami Analytics */}
-          {process.env.NEXT_PUBLIC_UMAMI_BASE_URL && process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID && (
-            <script
-              defer
-              src={`${process.env.NEXT_PUBLIC_UMAMI_BASE_URL}/script.js`}
-              data-website-id={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}
-            />
-          )}
+          {/* Umami Analytics：管理员登录后不加载 */}
+          {!isAdmin &&
+            process.env.NEXT_PUBLIC_UMAMI_BASE_URL &&
+            process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID && (
+              <script
+                defer
+                src={`${process.env.NEXT_PUBLIC_UMAMI_BASE_URL}/script.js`}
+                data-website-id={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}
+              />
+            )}
         </Head>
         <body>
           <Main />

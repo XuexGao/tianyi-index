@@ -10,7 +10,7 @@ import { getBaseUrl } from '../utils/getBaseUrl'
 import { formatModifiedDateTime } from '../utils/fileDetails'
 import { Checkbox, ChildIcon, ChildName, Downloading } from './FileListing'
 import { getStoredToken, Drive } from '../utils/protectedRouteHandler'
-import { VIRTUAL_ONEDRIVE_FOLDER_ID } from '../utils/driveResolver'
+import { VIRTUAL_ONEDRIVE_FOLDER_ID, VIRTUAL_TIANYI_FOLDER_ID } from '../utils/driveResolver'
 
 const GridItem = ({
   c,
@@ -46,7 +46,7 @@ const GridItem = ({
           <div className="relative flex h-full w-full items-center justify-center rounded-lg">
             <ChildIcon child={c} />
             <span className="absolute bottom-0 right-0 m-1 font-medium text-gray-700 dark:text-gray-500">
-              {c.id === VIRTUAL_ONEDRIVE_FOLDER_ID ? null : c.folder?.childCount}
+              {c.id === VIRTUAL_ONEDRIVE_FOLDER_ID || c.id === VIRTUAL_TIANYI_FOLDER_ID ? null : c.folder?.childCount}
             </span>
           </div>
         )}
@@ -139,7 +139,7 @@ const FolderGridLayout = ({
           >
             <div className="absolute top-0 right-0 z-10 m-1 rounded bg-white/50 py-0.5 opacity-0 transition-all duration-100 group-hover:opacity-100 dark:bg-gray-900/50">
               {c.folder ? (
-                c.id === VIRTUAL_ONEDRIVE_FOLDER_ID ? null : (
+                c.id === VIRTUAL_ONEDRIVE_FOLDER_ID || c.id === VIRTUAL_TIANYI_FOLDER_ID ? null : (
                   <div>
                     <span
                       title={t('Copy folder permalink')}

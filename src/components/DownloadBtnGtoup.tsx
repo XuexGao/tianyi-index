@@ -68,7 +68,8 @@ const DownloadButtonGroup = () => {
   // 用 resolveDrive 拿到剥离挂载前缀的后端路径和云盘类型
   const { apiBase, relPath, drive } = resolveDrive(asPath)
   const backendPath = relPath === '' ? '/' : relPath
-  const hashedToken = getStoredToken(backendPath, drive)
+  // 虚拟根目录没有私密目录，传 'ty' 兼容类型
+  const hashedToken = getStoredToken(backendPath, drive === 'virtual' ? 'ty' : drive)
 
   const clipboard = useClipboard()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -82,7 +83,7 @@ const DownloadButtonGroup = () => {
         setMenuOpen={setMenuOpen}
         backendPath={backendPath}
         apiBase={apiBase}
-        drive={drive}
+        drive={drive === 'virtual' ? 'ty' : drive}
       />
       <div className="flex flex-wrap justify-center gap-2">
         <DownloadButton

@@ -14,9 +14,10 @@ import { getPreviewType, preview } from '../utils/getPreviewType'
 import { useProtectedSWRInfinite } from '../utils/fetchWithSWR'
 import { useExpandTransition } from '../utils/useExpandTransition'
 import { getExtension, getRawExtension, getFileIcon } from '../utils/getFileIcon'
-import { getStoredToken } from '../utils/protectedRouteHandler'
-import { resolveDrive, ONEDRIVE_ENABLED, VIRTUAL_ONEDRIVE_FOLDER_ID } from '../utils/driveResolver'
+import { getStoredToken, Drive } from '../utils/protectedRouteHandler'
+import { resolveDrive, ONEDRIVE_ENABLED, VIRTUAL_ONEDRIVE_FOLDER_ID, VIRTUAL_TIANYI_FOLDER_ID, TY_VIRTUAL_FOLDER_NAME } from '../utils/driveResolver'
 import siteConfig from '../../config/site.config'
+import { useIsAdmin } from '../utils/useIsAdmin'
 import {
   DownloadingToast,
   downloadMultipleFiles,
@@ -64,6 +65,43 @@ const queryToPath = (query?: ParsedUrlQuery) => {
     return `/${path.map(p => encodeURIComponent(p)).join('/')}`
   }
   return '/'
+}
+
+/**
+ * 构造虚拟根目录数据（登录后根路径 '/' 显示两个云盘入口文件夹）
+ *
+ * 返回结构与云盘 API 返回的 folder 结构一致，让 FileListing 正常渲染。
+ * 虚拟文件夹的 name 决定点击后跳转的路径：
+ * - 天翼云盘：跳到 TY_VIRTUAL_MOUNT（/天翼云盘）
+ * - OneDrive：跳到 onedriveMountPath（/OneDrive）
+ */
+function virtualRootData(): any[] {
+  const children: OdFolderChildren[] = []
+
+  // 天翼云虚拟文件夹（仅天翼云挂载在 '/' 时，因为此时根目录被虚拟化了）
+  if (siteConfig.tianyiMountPath === '/') {
+    children.push({
+      id: VIRTUAL_TIANYI_FOLDER_ID,
+      name: TY_VIRTUAL_FOLDER_NAME,
+      size: 0,
+      lastModifiedDateTime: new Date().toISOString(),
+      folder: { childCount: 0, view: { sortBy: 'name', sortOrder: 'ascending', viewType: 'thumbnails' } },
+    })
+  }
+
+  // OneDrive 虚拟文件夹
+  if (ONEDRIVE_ENABLED) {
+    const odFolderName = siteConfig.onedriveMountPath.split('/').pop() || 'OneDrive'
+    children.push({
+      id: VIRTUAL_ONEDRIVE_FOLDER_ID,
+      name: odFolderName,
+      size: 0,
+      lastModifiedDateTime: new Date().toISOString(),
+      folder: { childCount: 0, view: { sortBy: 'name', sortOrder: 'ascending', viewType: 'thumbnails' } },
+    })
+  }
+
+  return [{ folder: { value: children } }]
 }
 
 // Render the icon of a folder child (may be a file or a folder), use emoji if the name of the child contains emoji
@@ -163,17 +201,32 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
   const [layout, _] = useLocalStorage('preferredLayout', layouts[0])
 
   const { t } = useTranslation()
-  // 根据当前浏览器 URL 解析所在云盘，得到 apiBase 和剥离挂载前缀的相对路径
+  // 管理员登录状态：登录后根目录 '/' 变成虚拟根，显示两个云盘入口文件夹
+  const isAdmin = useIsAdmin()
+  // 根据当前浏览器 URL 路径解析所在云盘，得到 apiBase 和剥离挂载前缀的相对路径
   const { apiBase, relPath, drive } = resolveDrive(router.asPath)
+  // 虚拟根目录的 apiBase 是 '/api/virtual'，但不会真正请求（path='' 时 SWR 返回 null）
   const apiBaseTyped = apiBase as '/api/ty' | '/api/od'
+  // 虚拟根目录不会触发认证/下载，统一转成 'ty' 兼容 Drive 类型
+  const normalizedDrive: Drive = drive === 'virtual' ? 'ty' : drive
+
+  // 虚拟根目录：登录后根路径不调用云盘 API，直接显示两个云盘入口文件夹
+  const isVirtualRoot = isAdmin && drive === 'virtual'
 
   const path = queryToPath(query)
   // 后端 API 使用剥离挂载前缀的相对路径；前端展示用原始 path
   const backendPath = relPath === '' ? '/' : relPath
   // hashedToken 用 backendPath+drive 查私密目录 token
-  const hashedToken = getStoredToken(backendPath, drive)
+  // 虚拟根目录没有私密目录，传 'ty' 兼容类型即可（不会命中）
+  const hashedToken = getStoredToken(backendPath, normalizedDrive)
 
-  const { data, error, size, setSize } = useProtectedSWRInfinite(backendPath, apiBaseTyped)
+  const { data: swrData, error, size, setSize } = useProtectedSWRInfinite(
+    isVirtualRoot ? '' : backendPath,
+    apiBaseTyped
+  )
+
+  // 虚拟根目录：构造虚拟文件夹列表数据，不依赖云盘 API
+  const data = isVirtualRoot ? virtualRootData() : swrData
 
   // === 文件列表展开动画（loading → measuring → expanding → done）===
   const isLoading = !data && !error
@@ -192,7 +245,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
     return (
       <PreviewContainer>
         {error.status === 401 ? (
-          <Auth redirect={backendPath} drive={drive} />
+          <Auth redirect={backendPath} drive={normalizedDrive} />
         ) : (
           <FourOhFour errorMsg={JSON.stringify(error.message)} />
         )}
@@ -395,7 +448,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
           )
           continue
         }
-        const hashedTokenForPath = getStoredToken(p, drive)
+        const hashedTokenForPath = getStoredToken(p, normalizedDrive)
         yield {
           name: c?.name,
           url: `${apiBaseTyped}/raw/?path=${p}${hashedTokenForPath ? `&odpt=${hashedTokenForPath}` : ''}`,
@@ -437,7 +490,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
     path,
     backendPath,
     apiBase: apiBaseTyped,
-    drive,
+    drive: normalizedDrive,
     folderChildren,
     selected,
     toggleItemSelected,

@@ -2,7 +2,7 @@ import type { OdFileObject } from '../../types'
 
 import { FC } from 'react'
 import { useRouter } from 'next/router'
-import { resolveDrive } from '../../utils/driveResolver'
+import { resolveDrive, normalizeDrive } from '../../utils/driveResolver'
 
 import { PreviewContainer, DownloadBtnContainer } from './Containers'
 import DownloadButtonGroup from '../DownloadBtnGtoup'
@@ -12,7 +12,7 @@ const ImagePreview: FC<{ file: OdFileObject }> = ({ file }) => {
   const { asPath } = useRouter()
   const { apiBase, relPath, drive } = resolveDrive(asPath)
   const backendPath = relPath === '' ? '/' : relPath
-  const hashedToken = getStoredToken(backendPath, drive)
+  const hashedToken = getStoredToken(backendPath, normalizeDrive(drive))
 
   return (
     <>
