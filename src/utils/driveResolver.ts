@@ -22,7 +22,7 @@ export type DriveType = 'ty' | 'od' | 'virtual'
 
 export interface DriveResolution {
   drive: DriveType
-  apiBase: '/api/ty' | '/api/od' | '/api/virtual'
+  apiBase: '/api/ty' | '/api/od'
   /** 剥离挂载前缀后的相对路径，始终以 / 开头，传给后端 API 的 path 参数 */
   relPath: string
   /** 当前云盘的挂载前缀，如 '/' 或 '/OneDrive' */
@@ -90,10 +90,12 @@ export function resolveDrive(urlPath: string): DriveResolution {
   const isAdmin = getIsAdmin()
 
   // 登录后 + 天翼云挂载在根目录：根路径 '/' 变成虚拟根
+  // apiBase 用 '/api/ty'（虚拟根不实际请求 API，但万一有竞态请求也不能命中
+  // next.config.js 的 /api → /api/ty 重写规则导致拿到 HTML 页面）
   if (isAdmin && TY_MOUNT === '/' && (cleanPath === '/' || cleanPath === '')) {
     return {
       drive: 'virtual',
-      apiBase: '/api/virtual',
+      apiBase: '/api/ty',
       relPath: '/',
       mountPath: '/',
     }
@@ -144,8 +146,7 @@ export function normalizeDrive(drive: DriveType): 'ty' | 'od' {
  * 便捷：只获取 apiBase
  */
 export function getApiBase(urlPath: string): '/api/ty' | '/api/od' {
-  const { apiBase } = resolveDrive(urlPath)
-  return apiBase === '/api/virtual' ? '/api/ty' : apiBase
+  return resolveDrive(urlPath).apiBase
 }
 
 /**

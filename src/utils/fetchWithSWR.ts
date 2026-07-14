@@ -8,15 +8,20 @@ import { getStoredToken, driveFromApiBase } from './protectedRouteHandler'
 // Common axios fetch function for use with useSWR
 export async function fetcher([url, token]: [url: string, token?: string]): Promise<any> {
   try {
-    return (
-      await (token
-        ? axios.get(url, {
-            headers: { 'od-protected-token': token },
-          })
-        : axios.get(url))
-    ).data
+    const res = await (token
+      ? axios.get(url, {
+          headers: { 'od-protected-token': token },
+        })
+      : axios.get(url))
+    // 安全检查：如果响应不是对象（如 HTML 页面字符串），说明请求命中了
+    // 页面路由而非 API 路由，直接抛错避免后续代码对字符串做 in 操作导致崩溃
+    if (typeof res.data !== 'object' || res.data === null) {
+      throw { status: 404, message: 'API route not found, got HTML response' }
+    }
+    return res.data
   } catch (err: any) {
-    throw { status: err.response.status, message: err.response.data }
+    if (err.status) throw err
+    throw { status: err.response?.status ?? 500, message: err.response?.data ?? err.message }
   }
 }
 

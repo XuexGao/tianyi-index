@@ -205,13 +205,16 @@ const FileListing: FC<{ query?: ParsedUrlQuery }> = ({ query }) => {
   const isAdmin = useIsAdmin()
   // 根据当前浏览器 URL 路径解析所在云盘，得到 apiBase 和剥离挂载前缀的相对路径
   const { apiBase, relPath, drive } = resolveDrive(router.asPath)
-  // 虚拟根目录的 apiBase 是 '/api/virtual'，但不会真正请求（path='' 时 SWR 返回 null）
+  // 虚拟根目录的 apiBase 是 '/api/ty'（虚拟根不实际请求，但用真实 API base 防竞态）
   const apiBaseTyped = apiBase as '/api/ty' | '/api/od'
   // 虚拟根目录不会触发认证/下载，统一转成 'ty' 兼容 Drive 类型
   const normalizedDrive: Drive = drive === 'virtual' ? 'ty' : drive
 
   // 虚拟根目录：登录后根路径不调用云盘 API，直接显示两个云盘入口文件夹
-  const isVirtualRoot = isAdmin && drive === 'virtual'
+  // 注意：用 drive === 'virtual' 判断而不是 isAdmin 状态，因为 drive 直接读
+  // window.__isAdmin（同步可用），而 isAdmin React 状态在组件 re-mount 时
+  // 第一次渲染还是 false，会有竞态导致 SWR 误请求
+  const isVirtualRoot = drive === 'virtual'
 
   const path = queryToPath(query)
   // 后端 API 使用剥离挂载前缀的相对路径；前端展示用原始 path
