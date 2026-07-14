@@ -87,10 +87,15 @@ export default function AdminManagePage({
     setLoading(true)
     try {
       await fetch('/api/auth/logout/', { method: 'POST' })
-      router.replace('/@login')
     } catch {
-      router.replace('/@login')
+      // 忽略错误，仍然跳转
     }
+    // 清除客户端登录状态缓存，避免跳转后仍被识别为已登录
+    sessionStorage.removeItem('admin_status')
+    if (typeof window !== 'undefined') {
+      ;(window as any).__isAdmin = false
+    }
+    router.replace('/@login')
   }
 
   // 私密目录增删

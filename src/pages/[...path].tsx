@@ -8,8 +8,9 @@ import FileListing from '../components/FileListing'
 import Footer from '../components/Footer'
 import Breadcrumb from '../components/Breadcrumb'
 import SwitchLayout from '../components/SwitchLayout'
+import { isAdminFromReq } from '../utils/useIsAdmin'
 
-export default function Folders() {
+export default function Folders({ ssrIsAdmin = false }: { ssrIsAdmin?: boolean }) {
   const { query, asPath } = useRouter()
 
   return (
@@ -26,7 +27,7 @@ export default function Folders() {
             <SwitchLayout />
           </nav>
           <div key={asPath}>
-            <FileListing query={query} />
+            <FileListing query={query} ssrIsAdmin={ssrIsAdmin} />
           </div>
         </div>
       </main>
@@ -36,9 +37,10 @@ export default function Folders() {
   )
 }
 
-export async function getServerSideProps({ locale }: { locale: string }) {
+export async function getServerSideProps({ locale, req }: { locale: string; req: any }) {
   return {
     props: {
+      ssrIsAdmin: isAdminFromReq(req),
       ...(await serverSideTranslations(locale, ['common'])),
     },
   }

@@ -42,7 +42,13 @@ export default function AdminLoginPage() {
       if (!res.ok) {
         setError(data.error || '登录失败')
       } else {
-        // 登录成功，跳转
+        // 登录成功：立即写入 sessionStorage 和 window.__isAdmin，
+        // 这样跳转后目标页 useIsAdmin 的 lazy initializer 能同步读到正确状态，
+        // 避免首次渲染显示未登录内容（闪现）
+        sessionStorage.setItem('admin_status', '1')
+        if (typeof window !== 'undefined') {
+          ;(window as any).__isAdmin = true
+        }
         router.replace(redirect)
       }
     } catch (e: any) {
