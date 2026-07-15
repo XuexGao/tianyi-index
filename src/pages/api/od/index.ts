@@ -147,6 +147,12 @@ export async function checkAuthRoute(
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // If method is POST, then the API is called by the client to store acquired tokens
   if (req.method === 'POST') {
+    // 写入 OneDrive 凭据属高危操作，必须校验管理员会话。
+    // 初始 OAuth 设置已改为 step-3 服务端直接 storeOdAuthTokens，不再经此端点。
+    if (!(await isAdminReq(req))) {
+      res.status(403).json({ error: 'Admin session required.' })
+      return
+    }
     const { obfuscatedAccessToken, accessTokenExpiry, obfuscatedRefreshToken } = req.body
     const accessToken = revealObfuscatedToken(obfuscatedAccessToken)
     const refreshToken = revealObfuscatedToken(obfuscatedRefreshToken)

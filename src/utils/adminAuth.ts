@@ -13,18 +13,12 @@ export const ADMIN_COOKIE_PATH = '/'
 
 /**
  * 从请求中提取 admin session token
- * 优先从 cookie 读取，兼容 query 参数（方便某些场景）
+ * 仅从 cookie 读取。曾支持 ?admin_token= query 参数，但 query 会经由
+ * 访问日志 / 浏览器历史 / Referer 泄露 token，已移除。
  */
 export function getTokenFromReq(req: {
   headers: { cookie?: string }
-  query?: { admin_token?: string }
 }): string | null {
-  // 优先 query 参数
-  if (req.query?.admin_token && typeof req.query.admin_token === 'string') {
-    return req.query.admin_token
-  }
-
-  // 从 cookie 读取
   const cookieHeader = req.headers.cookie
   if (!cookieHeader) return null
 

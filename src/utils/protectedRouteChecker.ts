@@ -149,5 +149,18 @@ export async function checkProtectedRoute(
   }
 
   const hashedPassword = sha256(dotPassword).toString()
-  return tokenHeader === hashedPassword
+  return constantTimeEqual(tokenHeader, hashedPassword)
+}
+
+/**
+ * 恒定时间字符串比较，避免通过时序差异逐字节推断哈希值。
+ * （无法使用 node:crypto.timingSafeEqual，因本模块可能被打进客户端 bundle）
+ */
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  }
+  return diff === 0
 }

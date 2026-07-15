@@ -1,7 +1,7 @@
 import Head from 'next/head'
 import Image from 'next/image'
 import { useRouter } from 'next/router'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useTranslation, Trans } from 'next-i18next'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
@@ -10,7 +10,7 @@ import siteConfig from '../../../config/site.config'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
 
-import { getAuthPersonInfo, requestTokenWithAuthCode, sendTokenToServer } from '../../utils/oAuthHandler'
+import { getAuthPersonInfo, requestTokenWithAuthCode } from '../../utils/oAuthHandler'
 import { LoadingIcon } from '../../components/Loading'
 import { getAccessToken } from '../api/od'
 
@@ -38,9 +38,6 @@ export async function getServerSideProps({ query, locale }) {
         error: 'No auth code present',
         description: 'Where is the auth code? Did you follow step 2 you silly donut?',
         ...(await serverSideTranslations(locale, ['common'])),
-        clientId,
-        clientSecret,
-        userPrincipalName,
       },
     }
   }
@@ -61,93 +58,62 @@ export async function getServerSideProps({ query, locale }) {
 
   const { expiryTime, accessToken, refreshToken } = response
 
+  // 安全：身份校验与 token 存储全部在服务端完成，access/refresh token 不下发到客户端，
+  // 避免其出现在 SSR HTML / 浏览器内存中。
+  try {
+    const { data, status } = await getAuthPersonInfo(accessToken)
+    if (status !== 200) {
+      return {
+        props: {
+          error: 'Error validating identify, restart',
+          description: 'Microsoft Graph API returned non-200 status.',
+          ...(await serverSideTranslations(locale, ['common'])),
+        },
+      }
+    }
+    if (data.userPrincipalName !== userPrincipalName) {
+      return {
+        props: {
+          error: 'Do not pretend to be the site owner',
+          description: 'The authenticated account does not match USER_PRINCIPAL_NAME.',
+          ...(await serverSideTranslations(locale, ['common'])),
+        },
+      }
+    }
+    const { storeOdAuthTokens } = await import('../../utils/odAuthTokenStore')
+    await storeOdAuthTokens({ accessToken, accessTokenExpiry: parseInt(expiryTime), refreshToken })
+  } catch (e: any) {
+    return {
+      props: {
+        error: 'Error storing the token',
+        description: e?.message || 'Unknown error',
+        ...(await serverSideTranslations(locale, ['common'])),
+      },
+    }
+  }
+
   return {
     props: {
-      clientId,
-      clientSecret,
-      userPrincipalName,
       error: null,
-      expiryTime,
-      accessToken,
-      refreshToken,
+      stored: true,
       ...(await serverSideTranslations(locale, ['common'])),
     },
   }
 }
 
-export default function OAuthStep3({ userPrincipalName, accessToken, expiryTime, refreshToken, error, description, errorUri }) {
+export default function OAuthStep3({ error, description, errorUri, stored }) {
   const router = useRouter()
-  const [expiryTimeLeft, setExpiryTimeLeft] = useState(expiryTime)
 
   const { t } = useTranslation()
 
   useEffect(() => {
-    if (!expiryTimeLeft) return
-
-    const intervalId = setInterval(() => {
-      setExpiryTimeLeft(expiryTimeLeft - 1)
-    }, 1000)
-
-    return () => clearInterval(intervalId)
-  }, [expiryTimeLeft])
-
-  const [buttonContent, setButtonContent] = useState(
-    <div>
-      <span>{t('Store tokens')}</span> <FontAwesomeIcon icon="key" />
-    </div>
-  )
-  const [buttonError, setButtonError] = useState(false)
-
-  const sendAuthTokensToServer = async () => {
-    setButtonError(false)
-    setButtonContent(
-      <div>
-        <span>{t('Storing tokens')}</span> <LoadingIcon className="ml-1 inline h-4 w-4 animate-spin" />
-      </div>
-    )
-
-    // verify identity of the authenticated user with the Microsoft Graph API
-    const { data, status } = await getAuthPersonInfo(accessToken)
-    if (status !== 200) {
-      setButtonError(true)
-      setButtonContent(
-        <div>
-          <span>{t('Error validating identify, restart')}</span> <FontAwesomeIcon icon="exclamation-circle" />
-        </div>
-      )
-      return
+    if (stored) {
+      const timer = setTimeout(() => {
+        router.push('/')
+      }, 2000)
+      return () => clearTimeout(timer)
     }
-    if (data.userPrincipalName !== userPrincipalName) {
-      setButtonError(true)
-      setButtonContent(
-        <div>
-          <span>{t('Do not pretend to be the site owner')}</span> <FontAwesomeIcon icon="exclamation-circle" />
-        </div>
-      )
-      return
-    }
-
-    await sendTokenToServer(accessToken, refreshToken, expiryTime)
-      .then(() => {
-        setButtonError(false)
-        setButtonContent(
-          <div>
-            <span>{t('Stored! Going home...')}</span> <FontAwesomeIcon icon="check" />
-          </div>
-        )
-        setTimeout(() => {
-          router.push('/')
-        }, 2000)
-      })
-      .catch(_ => {
-        setButtonError(true)
-        setButtonContent(
-          <div>
-            <span>{t('Error storing the token')}</span> <FontAwesomeIcon icon="exclamation-circle" />
-          </div>
-        )
-      })
-  }
+  }, [stored, router])
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-white dark:bg-gray-900">
@@ -217,56 +183,23 @@ export default function OAuthStep3({ userPrincipalName, accessToken, expiryTime,
             ) : (
               <div>
                 <p className="py-1 font-medium">{t('Success! The API returned what we needed.')}</p>
-                <ol className="py-1">
-                  {accessToken && (
-                    <li>
-                      <FontAwesomeIcon icon={['far', 'check-circle']} className="text-green-500" />{' '}
-                      <span>
-                        {t('Acquired access_token: ')}
-                        <code className="font-mono text-sm opacity-80">{`${accessToken.substring(0, 60)}...`}</code>
-                      </span>
-                    </li>
-                  )}
-                  {refreshToken && (
-                    <li>
-                      <FontAwesomeIcon icon={['far', 'check-circle']} className="text-green-500" />{' '}
-                      <span>
-                        {t('Acquired refresh_token: ')}
-                        <code className="font-mono text-sm opacity-80">{`${refreshToken.substring(0, 60)}...`}</code>
-                      </span>
-                    </li>
-                  )}
-                </ol>
-
+                <p className="py-1">
+                  <FontAwesomeIcon icon={['far', 'check-circle']} className="text-green-500" />{' '}
+                  {t('Stored! Going home...')}
+                </p>
                 <p className="py-1 text-sm font-medium text-teal-500">
                   <FontAwesomeIcon icon="exclamation-circle" className="mr-1" />{' '}
                   {t('These tokens may take a few seconds to populate after you click the button below. ') +
                     t('If you go back home and still see the welcome page telling you to re-authenticate, ') +
                     t('revisit home and do a hard refresh.')}
                 </p>
-                <p className="py-1">
-                  {t(
-                    'Final step, click the button below to store these tokens persistently before they expire after {{minutes}} minutes {{seconds}} seconds. ',
-                    {
-                      minutes: Math.floor(expiryTimeLeft / 60),
-                      seconds: expiryTimeLeft - Math.floor(expiryTimeLeft / 60) * 60,
-                    }
-                  ) +
-                    t(
-                      "Don't worry, after storing them, OneDrive-Index will take care of token refreshes and updates after your site goes live."
-                    )}
-                </p>
-
                 <div className="mb-2 mt-6 text-right">
                   <button
-                    className={`rounded-lg bg-gradient-to-br px-4 py-2.5 text-center text-sm font-medium text-white hover:bg-gradient-to-bl focus:ring-4 ${
-                      buttonError
-                        ? 'from-red-500 to-orange-400 focus:ring-red-200 dark:focus:ring-red-800'
-                        : 'from-green-500 to-teal-300 focus:ring-green-200 dark:focus:ring-green-800'
-                    }`}
-                    onClick={sendAuthTokensToServer}
+                    className="rounded-lg bg-gradient-to-br from-green-500 to-teal-300 px-4 py-2.5 text-center text-sm font-medium text-white hover:bg-gradient-to-bl focus:ring-4 focus:ring-green-200 disabled:cursor-not-allowed disabled:grayscale dark:focus:ring-green-800"
+                    onClick={() => router.push('/')}
                   >
-                    {buttonContent}
+                    <LoadingIcon className="mr-2 inline h-4 w-4 animate-spin" />
+                    <span>{t('Stored! Going home...')}</span>
                   </button>
                 </div>
               </div>

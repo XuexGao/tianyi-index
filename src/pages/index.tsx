@@ -8,7 +8,7 @@ import FileListing from '../components/FileListing'
 import Footer from '../components/Footer'
 import Breadcrumb from '../components/Breadcrumb'
 import SwitchLayout from '../components/SwitchLayout'
-import { isAdminFromReq } from '../utils/useIsAdmin'
+import { isAdminFromReq } from '../utils/ssrAdmin'
 
 export default function Home({ ssrIsAdmin = false }: { ssrIsAdmin?: boolean }) {
   const { asPath } = useRouter()
@@ -40,7 +40,7 @@ export default function Home({ ssrIsAdmin = false }: { ssrIsAdmin?: boolean }) {
 export async function getServerSideProps({ locale, req }: { locale: string; req: any }) {
   return {
     props: {
-      ssrIsAdmin: isAdminFromReq(req),
+      ssrIsAdmin: await isAdminFromReq(req),
       ...(await serverSideTranslations(locale, ['common'])),
     },
   }

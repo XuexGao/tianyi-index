@@ -13,7 +13,6 @@ import { getAccessToken } from '../api/od'
 
 export async function getServerSideProps({ locale }) {
   const clientId = process.env.CLIENT_ID || ''
-  const clientSecret = process.env.CLIENT_SECRET || ''
   // Get accessToken using getAccessToken function
   const accessToken = await getAccessToken()
   // If the accessToken exists, redirect to the home page
@@ -26,16 +25,16 @@ export async function getServerSideProps({ locale }) {
     }
   }
   // If the accessToken does not exist, render the page normally
+  // 注意：clientSecret 不下发给客户端，仅在服务端使用
   return {
     props: {
       ...(await serverSideTranslations(locale, ['common'])),
       clientId,
-      clientSecret,
     },
   }
 }
 
-export default function OAuthStep1({ clientId, clientSecret }) {
+export default function OAuthStep1({ clientId }) {
   const router = useRouter()
 
   const { t } = useTranslation()
@@ -106,7 +105,7 @@ export default function OAuthStep1({ clientId, clientSecret }) {
                       CLIENT_SECRET*
                     </td>
                     <td className="whitespace-nowrap py-1 px-3 text-gray-500 dark:text-gray-400">
-                      <code className="font-mono text-sm">{clientSecret}</code>
+                      <code className="font-mono text-sm">{'••••••（已配置，不展示）'}</code>
                     </td>
                   </tr>
                   <tr className="border-y bg-white dark:border-gray-700 dark:bg-gray-900">

@@ -10,15 +10,17 @@ async function getConfig() {
 }
 
 // Just a disguise to obfuscate required tokens (including but not limited to client secret,
-// access tokens, and refresh tokens), used along with the following two functions
-const AES_SECRET_KEY = 'onedrive-vercel-index'
+// access tokens, and refresh tokens), used along with the following two functions.
+// 密钥优先从服务端环境变量读取；未配置时回退到旧值以保持兼容。
+// 注意：该密钥不可进入客户端 bundle，仅在服务端使用 revealObfuscatedToken 解密。
+const AES_SECRET_KEY = process.env.CRYPTO_SECRET || 'onedrive-vercel-index'
 export function obfuscateToken(token: string): string {
   // Encrypt token with AES
   const encrypted = CryptoJS.AES.encrypt(token, AES_SECRET_KEY)
   return encrypted.toString()
 }
 export function revealObfuscatedToken(obfuscated: string): string {
-  // Decrypt SHA256 obfuscated token
+  // Decrypt AES obfuscated token
   if (!obfuscated) return ''
   const decrypted = CryptoJS.AES.decrypt(obfuscated, AES_SECRET_KEY)
   return decrypted.toString(CryptoJS.enc.Utf8)

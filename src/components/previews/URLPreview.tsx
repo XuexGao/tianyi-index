@@ -15,6 +15,22 @@ const parseDotUrl = (content: string): string | undefined => {
     ?.split('=')[1]
 }
 
+/**
+ * 安全打开 .url 文件中的链接：仅允许 http/https 协议。
+ * 文件内容来自云盘，可能被构造为 javascript:/data: 等协议触发 XSS。
+ */
+const openSafeUrl = (raw: string | undefined) => {
+  if (!raw) return
+  try {
+    const u = new URL(raw)
+    if (u.protocol === 'http:' || u.protocol === 'https:') {
+      window.open(u.href)
+    }
+  } catch {
+    // 非法 URL，忽略
+  }
+}
+
 const TextPreview = ({ file }) => {
   const { asPath } = useRouter()
   const { apiBase, relPath } = resolveDrive(asPath)
@@ -54,11 +70,11 @@ const TextPreview = ({ file }) => {
       <DownloadBtnContainer>
         <div className="flex justify-center">
           <DownloadButton
-            onClickCallback={() => window.open(parseDotUrl(content) ?? '')}
+            onClickCallback={() => openSafeUrl(parseDotUrl(content))}
             btnColor="blue"
             btnText={t('Open URL')}
             btnIcon="external-link-alt"
-            btnTitle={t('Open URL{{url}}', { url: ' ' + parseDotUrl(content) ?? '' })}
+            btnTitle={t('Open URL{{url}}', { url: ' ' + (parseDotUrl(content) ?? '') })}
           />
         </div>
       </DownloadBtnContainer>

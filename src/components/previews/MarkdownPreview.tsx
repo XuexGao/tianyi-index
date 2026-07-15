@@ -3,7 +3,6 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
-import rehypeRaw from 'rehype-raw'
 import { useTranslation } from 'next-i18next'
 import { LightAsync as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { tomorrowNight } from 'react-syntax-highlighter/dist/cjs/styles/hljs'
@@ -114,7 +113,8 @@ const MarkdownPreview: FC<{
         transition: 'opacity 0.5s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
-      {/* Using rehypeRaw to render HTML inside Markdown is potentially dangerous, use under safe environments. (#18) */}
+      {/* 安全：已移除 rehypeRaw，不再渲染 Markdown 中内嵌的原始 HTML，避免存储型 XSS。
+          如确需渲染 HTML，必须配合 rehype-sanitize 做严格白名单过滤。 */}
       <ReactMarkdown
         // @ts-ignore
         remarkPlugins={[remarkGfm, remarkMath]}
@@ -122,7 +122,7 @@ const MarkdownPreview: FC<{
         // Since type errors occur often in remark toolchain and the use is so common,
         // ignoring it shouleld be safe enough.
         // @ts-ignore
-        rehypePlugins={[rehypeKatex, rehypeRaw]}
+        rehypePlugins={[rehypeKatex]}
         components={customRenderer}
       >
         {content}

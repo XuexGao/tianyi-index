@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { ADMIN_COOKIE_NAME } from './adminAuth'
 
 /**
  * 检测当前是否为管理员登录状态（客户端）
@@ -53,13 +52,5 @@ export function useIsAdmin(ssrInitial?: boolean): boolean {
   return isAdmin
 }
 
-/**
- * 从请求 cookie 判断是否管理员登录（供 getServerSideProps 使用）
- * 粗粒度：只检查 cookie 存在性，真正的 session 校验由 API 路由做。
- */
-export function isAdminFromReq(req: any): boolean {
-  const cookieHeader = req?.headers?.cookie || ''
-  return cookieHeader
-    .split(';')
-    .some((part: string) => part.trim().startsWith(`${ADMIN_COOKIE_NAME}=`))
-}
+// 注意：SSR 阶段的管理员校验已迁移到 src/utils/ssrAdmin.ts（服务端专用）。
+// 本文件被客户端组件引用，不可 import adminSessionStore（依赖 ioredis / node net, tls）。

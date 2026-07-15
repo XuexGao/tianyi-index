@@ -39,7 +39,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           top: siteConfig.maxItems,
         },
       })
-      res.status(200).json(data.value)
+
+      // 安全：过滤掉受保护目录下的结果，避免搜索绕过目录密码保护泄露文件元数据。
+      // 采用粗匹配（命中即隐藏，宁可多隐藏也不泄露）。
+      const protectedRoutesOd = ((siteConfig.protectedRoutesOd as string[]) || [])
+        .map(r => r.toLowerCase().replace(/\/$/, ''))
+        .filter(Boolean)
+      const filtered = (data.value as any[]).filter(item => {
+        const fullPath = `${item.parentReference?.path || ''}/${item.name || ''}`.toLowerCase()
+        return !protectedRoutesOd.some(r => fullPath.includes(r))
+      })
+
+      res.status(200).json(filtered)
     } catch (error: any) {
       res.status(error?.response?.status ?? 500).json({ error: error?.response?.data ?? 'Internal server error.' })
     }

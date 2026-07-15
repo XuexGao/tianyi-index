@@ -17,6 +17,19 @@ function encryptToken(token: string): string {
   return sha256(token).toString()
 }
 
+/**
+ * 恒定时间字符串比较，避免通过时序差异逐字节推断哈希值。
+ * （无法使用 node:crypto.timingSafeEqual，因本模块被客户端组件引用）
+ */
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  }
+  return diff === 0
+}
+
 // Fetch stored token from localStorage and encrypt with SHA256
 // path 应为剥离挂载前缀的后端路径；drive 决定查 ty 还是 od 的私密目录列表
 export function getStoredToken(path: string, drive: Drive = 'ty'): string | null {
@@ -38,7 +51,7 @@ export function compareHashedToken({
   odTokenHeader: string
   dotPassword: string
 }): boolean {
-  return encryptToken(dotPassword.trim()) === odTokenHeader
+  return constantTimeEqual(encryptToken(dotPassword.trim()), odTokenHeader)
 }
 
 /**
