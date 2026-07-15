@@ -55,6 +55,9 @@
 | `NEXT_PUBLIC_UMAMI_BASE_URL` | （空） | Umami 统计服务地址，例如 `https://umami.example.com`。三个 Umami 变量需同时配置才生效 |
 | `NEXT_PUBLIC_UMAMI_WEBSITE_ID` | （空） | Umami 网站 ID |
 | `NEXT_PUBLIC_UMAMI_SHARE_ID` | （空） | Umami 分享 ID，用于读取公开统计接口 |
+| `SITE_URL` | （空） | 站点可信域名，例如 `https://your-domain.com`。用于 RSS/sitemap 生成绝对 URL，避免 Host 头注入。未配置时回退到请求的 Host 头 |
+| `NEXT_PUBLIC_PDF_VIEWER_URL` | `https://mozilla.github.io/pdf.js/web/viewer.html` | PDF 在线预览器地址。如需自托管或换源可修改此变量 |
+| `WALLPAPER_UPSTREAM` | `https://api.elaina.cat/random/` | 随机壁纸上游图源地址 |
 
 ### 本地开发
 
