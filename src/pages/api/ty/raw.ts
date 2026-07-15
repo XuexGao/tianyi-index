@@ -6,11 +6,16 @@ import { cloud189Login } from '../../../utils/tianyiAuth'
 import { getFiles, getDownloadLink } from '../../../utils/tianyiClient'
 import { getTianyiSession, saveTianyiSession } from '../../../utils/tianyiSessionStore'
 import { checkProtectedRoute } from '../../../utils/protectedRouteChecker'
+import { isAdminReq } from '../auth/check'
 
 const DEFAULT_USER_ID = 'default_user'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { path = '/', odpt = '' } = req.query
+
+  // 通过 cookie 判断 admin 状态（raw 下载是浏览器导航，自动带 cookie）
+  // admin 时从天翼云绝对根目录 -11 开始，忽略 DEFAULT_FOLDER_ID
+  const isAdmin = await isAdminReq(req)
 
   if (path === '[...path]') {
     res.status(400).json({ error: 'No path specified.' })
@@ -65,7 +70,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 逐层查找文件
-    let currentFolderId = process.env.DEFAULT_FOLDER_ID || '-11'
+    // admin 请求从天翼云绝对根目录（-11）开始
+    let currentFolderId = isAdmin ? '-11' : (process.env.DEFAULT_FOLDER_ID || '-11')
     let fileId: string | null = null
     let fileName: string | null = null
 

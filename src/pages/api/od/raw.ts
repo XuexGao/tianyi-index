@@ -6,6 +6,7 @@ import Cors from 'cors'
 
 import { driveApi, cacheControlHeader } from '../../../../config/api.config'
 import { encodePath, getAccessToken, checkAuthRoute } from '.'
+import { isAdminReq } from '../auth/check'
 
 // CORS middleware for raw links: https://nextjs.org/docs/api-routes/api-middlewares
 export function runCorsMiddleware(req: NextApiRequest, res: NextApiResponse) {
@@ -30,6 +31,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { path = '/', odpt = '', proxy = false } = req.query
 
+  // 通过 cookie 判断 admin 状态（raw 下载是浏览器导航，自动带 cookie）
+  // admin 时从 OneDrive 绝对根目录开始，忽略 BASE_DIRECTORY
+  const isAdmin = await isAdminReq(req)
+
   if (path === '[...path]') {
     res.status(400).json({ error: 'No path specified.' })
     return
@@ -53,7 +58,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   await runCorsMiddleware(req, res)
   try {
-    const requestUrl = `${driveApi}/root${encodePath(cleanPath)}`
+    // admin 请求从 OneDrive 绝对根目录开始，忽略 BASE_DIRECTORY
+    const requestUrl = `${driveApi}/root${encodePath(cleanPath, isAdmin ? '/' : undefined)}`
     const { data } = await axios.get(requestUrl, {
       headers: { Authorization: `Bearer ${accessToken}` },
       params: {
