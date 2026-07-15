@@ -11,7 +11,7 @@ import { formatModifiedDateTime, formatModifiedDateTimeCompact, humanFileSize } 
 
 import { Downloading, Checkbox, ChildIcon, ChildName } from './FileListing'
 import { getStoredToken } from '../utils/protectedRouteHandler'
-import { VIRTUAL_ONEDRIVE_FOLDER_ID, VIRTUAL_TIANYI_FOLDER_ID } from '../utils/driveResolver'
+import { VIRTUAL_ADMIN_FOLDER_ID, VIRTUAL_ONEDRIVE_FOLDER_ID, VIRTUAL_TIANYI_FOLDER_ID } from '../utils/driveResolver'
 
 const FileListItem: FC<{ fileContent: OdFolderChildren; showSize?: boolean }> = ({ fileContent: c, showSize }) => {
   return (
@@ -137,7 +137,7 @@ const FolderListLayout = ({
           </Link>
 
           {c.folder ? (
-            c.id === VIRTUAL_ONEDRIVE_FOLDER_ID || c.id === VIRTUAL_TIANYI_FOLDER_ID ? (
+            c.id === VIRTUAL_ONEDRIVE_FOLDER_ID || c.id === VIRTUAL_TIANYI_FOLDER_ID || c.id === VIRTUAL_ADMIN_FOLDER_ID ? (
               <div className="hidden col-span-1 md:block" />
             ) : (
               <div className="hidden col-span-1 items-center justify-center py-1.5 text-gray-700 dark:text-gray-400 md:flex">

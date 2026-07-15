@@ -15,7 +15,7 @@ import { useProtectedSWRInfinite } from '../utils/fetchWithSWR'
 import { useExpandTransition } from '../utils/useExpandTransition'
 import { getExtension, getRawExtension, getFileIcon } from '../utils/getFileIcon'
 import { getStoredToken, Drive } from '../utils/protectedRouteHandler'
-import { resolveDrive, ONEDRIVE_ENABLED, VIRTUAL_ONEDRIVE_FOLDER_ID, VIRTUAL_TIANYI_FOLDER_ID, TY_VIRTUAL_FOLDER_NAME } from '../utils/driveResolver'
+import { resolveDrive, ONEDRIVE_ENABLED, VIRTUAL_ADMIN_FOLDER_ID, VIRTUAL_TIANYI_FOLDER_ID, VIRTUAL_ONEDRIVE_FOLDER_ID, ADMIN_TY_FOLDER_NAME, ADMIN_OD_FOLDER_NAME } from '../utils/driveResolver'
 import siteConfig from '../../config/site.config'
 import { useIsAdmin } from '../utils/useIsAdmin'
 import {
@@ -68,33 +68,28 @@ const queryToPath = (query?: ParsedUrlQuery) => {
 }
 
 /**
- * 构造虚拟根目录数据（登录后根路径 '/' 显示两个云盘入口文件夹）
+ * 构造 /Admin 虚拟目录数据（显示天翼云盘和 OneDrive 两个入口文件夹）
  *
  * 返回结构与云盘 API 返回的 folder 结构一致，让 FileListing 正常渲染。
  * 虚拟文件夹的 name 决定点击后跳转的路径：
- * - 天翼云盘：跳到 TY_VIRTUAL_MOUNT（/天翼云盘）
- * - OneDrive：跳到 onedriveMountPath（/OneDrive）
+ * - 天翼云盘：跳到 /Admin/天翼云盘（显示天翼云根目录）
+ * - OneDrive：跳到 /Admin/OneDrive（显示 OneDrive 根目录）
  */
-function virtualRootData(): any[] {
+function virtualAdminData(): any[] {
   const children: OdFolderChildren[] = []
 
-  // 天翼云虚拟文件夹（仅天翼云挂载在 '/' 时，因为此时根目录被虚拟化了）
-  if (siteConfig.tianyiMountPath === '/') {
-    children.push({
-      id: VIRTUAL_TIANYI_FOLDER_ID,
-      name: TY_VIRTUAL_FOLDER_NAME,
-      size: 0,
-      lastModifiedDateTime: new Date().toISOString(),
-      folder: { childCount: 0, view: { sortBy: 'name', sortOrder: 'ascending', viewType: 'thumbnails' } },
-    })
-  }
+  children.push({
+    id: VIRTUAL_TIANYI_FOLDER_ID,
+    name: ADMIN_TY_FOLDER_NAME,
+    size: 0,
+    lastModifiedDateTime: new Date().toISOString(),
+    folder: { childCount: 0, view: { sortBy: 'name', sortOrder: 'ascending', viewType: 'thumbnails' } },
+  })
 
-  // OneDrive 虚拟文件夹
   if (ONEDRIVE_ENABLED) {
-    const odFolderName = siteConfig.onedriveMountPath.split('/').pop() || 'OneDrive'
     children.push({
       id: VIRTUAL_ONEDRIVE_FOLDER_ID,
-      name: odFolderName,
+      name: ADMIN_OD_FOLDER_NAME,
       size: 0,
       lastModifiedDateTime: new Date().toISOString(),
       folder: { childCount: 0, view: { sortBy: 'name', sortOrder: 'ascending', viewType: 'thumbnails' } },
@@ -211,11 +206,9 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
   // 虚拟根目录不会触发认证/下载，统一转成 'ty' 兼容 Drive 类型
   const normalizedDrive: Drive = drive === 'virtual' ? 'ty' : drive
 
-  // 虚拟根目录：登录后根路径不调用云盘 API，直接显示两个云盘入口文件夹
-  // 注意：用 drive === 'virtual' 判断而不是 isAdmin 状态，因为 drive 直接读
-  // window.__isAdmin（同步可用），而 isAdmin React 状态在组件 re-mount 时
-  // 第一次渲染还是 false，会有竞态导致 SWR 误请求
-  const isVirtualRoot = drive === 'virtual'
+  // /Admin 虚拟目录：不调用云盘 API，直接显示两个云盘入口文件夹
+  // 注意：用 drive === 'virtual' 判断（resolveDrive 读 window.__isAdmin 同步可用）
+  const isVirtualAdmin = drive === 'virtual'
 
   const path = queryToPath(query)
   // 后端 API 使用剥离挂载前缀的相对路径；前端展示用原始 path
@@ -225,27 +218,27 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
   const hashedToken = getStoredToken(backendPath, normalizedDrive)
 
   const { data: swrData, error, size, setSize } = useProtectedSWRInfinite(
-    isVirtualRoot ? '' : backendPath,
+    isVirtualAdmin ? '' : backendPath,
     apiBaseTyped
   )
 
-  // 虚拟根目录：构造虚拟文件夹列表数据，不依赖云盘 API
-  const data = isVirtualRoot ? virtualRootData() : swrData
+  // /Admin 虚拟目录：构造两个云盘入口文件夹数据，不依赖云盘 API
+  const data = isVirtualAdmin ? virtualAdminData() : swrData
 
   // === 文件列表展开动画（loading → measuring → expanding → done）===
   const isLoading = !data && !error
   const { ref: fileListRef, phase: filePhase, maxH: fileListMaxH } = useExpandTransition(isLoading)
 
-  // 天翼云根目录超时/出错时，仍保留 OneDrive 虚拟文件夹入口，错误信息放 README 位置
-  const tyErrorWithOd =
+  // 天翼云根目录出错时，登录用户仍保留 Admin 入口文件夹
+  const tyErrorWithAdmin =
     error &&
     error.status !== 401 &&
-    ONEDRIVE_ENABLED &&
+    isAdmin &&
     drive === 'ty' &&
     backendPath === '/' &&
     siteConfig.tianyiMountPath === '/'
 
-  if (error && !tyErrorWithOd) {
+  if (error && !tyErrorWithAdmin) {
     return (
       <PreviewContainer>
         {error.status === 401 ? (
@@ -318,38 +311,36 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
   let folderChildren: OdFolderObject['value'] = []
   let readmeFiles: OdFolderChildren[] = []
 
-  // 天翼云根目录出错时，构造只含 OneDrive 虚拟文件夹的列表，保留入口
-  if (tyErrorWithOd) {
-    const odFolderName = siteConfig.onedriveMountPath.split('/').pop() || 'OneDrive'
-    const virtualOdFolder: OdFolderChildren = {
-      id: VIRTUAL_ONEDRIVE_FOLDER_ID,
-      name: odFolderName,
+  // 天翼云根目录出错时，登录用户构造只含 Admin 入口的列表
+  if (tyErrorWithAdmin) {
+    const virtualAdminFolder: OdFolderChildren = {
+      id: VIRTUAL_ADMIN_FOLDER_ID,
+      name: 'Admin',
       size: 0,
       lastModifiedDateTime: new Date().toISOString(),
       folder: { childCount: 0, view: { sortBy: 'name', sortOrder: 'ascending', viewType: 'thumbnails' } },
     }
-    folderChildren = [virtualOdFolder]
+    folderChildren = [virtualAdminFolder]
   } else if (data && responses.length > 0 && 'folder' in responses[0]) {
     folderChildren = [].concat(...responses.map(r => r.folder.value)) as OdFolderObject['value']
 
-    // 在天翼云根目录注入 OneDrive 虚拟文件夹入口
+    // 登录后在天翼云根目录注入 Admin 虚拟文件夹入口
     if (
-      ONEDRIVE_ENABLED &&
+      isAdmin &&
       drive === 'ty' &&
       backendPath === '/' &&
       siteConfig.tianyiMountPath === '/'
     ) {
-      const odFolderName = siteConfig.onedriveMountPath.split('/').pop() || 'OneDrive'
-      const hasConflict = folderChildren.some(c => c.name === odFolderName)
+      const hasConflict = folderChildren.some(c => c.name === 'Admin')
       if (!hasConflict) {
-        const virtualOdFolder: OdFolderChildren = {
-          id: VIRTUAL_ONEDRIVE_FOLDER_ID,
-          name: odFolderName,
+        const virtualAdminFolder: OdFolderChildren = {
+          id: VIRTUAL_ADMIN_FOLDER_ID,
+          name: 'Admin',
           size: 0,
           lastModifiedDateTime: new Date().toISOString(),
           folder: { childCount: 0, view: { sortBy: 'name', sortOrder: 'ascending', viewType: 'thumbnails' } },
         }
-        folderChildren = [virtualOdFolder, ...folderChildren]
+        folderChildren = [virtualAdminFolder, ...folderChildren]
       }
     }
 
@@ -548,7 +539,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
 
         {/* 内容层：measuring 开始渲染（测高度），expanding 淡入，done 正常显示
             FolderListLayout/FolderGridLayout 自带 od-files-container 毛玻璃 */}
-        {(data || tyErrorWithOd) && filePhase !== 'loading' && (
+        {(data || tyErrorWithAdmin) && filePhase !== 'loading' && (
           <>
             {layout.name === 'Grid' ? <FolderGridLayout {...folderProps} /> : <FolderListLayout {...folderProps} />}
 
@@ -598,7 +589,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
       ))}
 
       {/* 天翼云超时/出错时，错误信息卡片放在 README 位置 */}
-      {tyErrorWithOd && (
+      {tyErrorWithAdmin && (
         <div className="mt-4">
           <PreviewContainer>
             <div className="mb-2 text-sm font-bold text-gray-600 dark:text-gray-300">
