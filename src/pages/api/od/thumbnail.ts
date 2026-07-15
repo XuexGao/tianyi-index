@@ -58,7 +58,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       res.status(400).json({ error: "The item doesn't have a valid thumbnail." })
     }
   } catch (error: any) {
-    res.status(error?.response?.status).json({ error: error?.response?.data ?? 'Internal server error.' })
+    console.error('[api/od/thumbnail] error:', error?.message)
+    res.status(error?.response?.status ?? 500).json({ error: 'Internal server error.' })
   }
   return
 }

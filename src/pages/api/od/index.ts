@@ -261,9 +261,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
       })
 
-      const nextPage = folderData['@odata.nextLink']
-        ? folderData['@odata.nextLink'].match(/&\$skiptoken=(.+)/i)[1]
+      const nextPageMatch = folderData['@odata.nextLink']
+        ? folderData['@odata.nextLink'].match(/&\$skiptoken=(.+)/i)
         : null
+      const nextPage = nextPageMatch ? nextPageMatch[1] : null
 
       if (nextPage) {
         res.status(200).json({ folder: folderData, next: nextPage })
@@ -275,7 +276,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.status(200).json({ file: identityData })
     return
   } catch (error: any) {
-    res.status(error?.response?.code ?? 500).json({ error: error?.response?.data ?? 'Internal server error.' })
+    console.error('[api/od/index] error:', error?.message)
+    res.status(error?.response?.status ?? 500).json({ error: 'Internal server error.' })
     return
   }
 }

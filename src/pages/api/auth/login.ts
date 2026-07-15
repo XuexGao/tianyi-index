@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { createAdminSession } from '../../../utils/adminSessionStore'
-import { ADMIN_COOKIE_NAME, ADMIN_COOKIE_MAX_AGE, ADMIN_COOKIE_PATH } from '../../../utils/adminAuth'
+import { ADMIN_COOKIE_NAME, ADMIN_COOKIE_MAX_AGE, ADMIN_COOKIE_PATH, isSameOriginReq } from '../../../utils/adminAuth'
 
 /**
  * 管理员登录 API
@@ -14,6 +14,12 @@ import { ADMIN_COOKIE_NAME, ADMIN_COOKIE_MAX_AGE, ADMIN_COOKIE_PATH } from '../.
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
+
+  // CSRF 防护：校验同源
+  if (!isSameOriginReq(req)) {
+    res.status(403).json({ error: '跨站请求被拒绝' })
     return
   }
 

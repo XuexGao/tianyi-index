@@ -95,7 +95,8 @@ const DownloadButtonGroup = () => {
         />
         <DownloadButton
           onClickCallback={() => {
-            clipboard.copy(`${getBaseUrl()}${apiBase}/raw/?path=${backendPath}${hashedToken ? `&odpt=${hashedToken}` : ''}`)
+            // 安全：复制直链时不包含 odpt token，避免用户无意分享带令牌的链接
+            clipboard.copy(`${getBaseUrl()}${apiBase}/raw/?path=${backendPath}`)
             toast.success(t('Copied direct link to clipboard.'))
           }}
           btnColor="pink"

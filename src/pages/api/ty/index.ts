@@ -227,7 +227,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     })
     return
   } catch (error: any) {
-    res.status(500).json({ error: error?.message || 'Internal server error.' })
+    // 安全：不向客户端透传内部错误详情，仅记录日志
+    console.error('[ty/index] 异常:', error)
+    res.status(500).json({ error: '服务器内部错误，请稍后重试' })
     return
   }
 }

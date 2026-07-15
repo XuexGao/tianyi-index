@@ -184,6 +184,8 @@ export async function* traverseFolder(path: string, apiBase: string = '/api/ty')
   const hashedToken = getStoredToken(path, driveFromApiBase(apiBase))
 
   // Generate the task passed to Promise.race to request a folder
+  // 注意：genTask 内部 catch 错误并作为 data 返回，因此 Promise.race 永不 reject。
+  // 错误需在主循环中通过 data.error 字段判断并处理。
   const genTask = async (i: number, path: string, next?: string) => {
     return {
       i,
@@ -191,7 +193,7 @@ export async function* traverseFolder(path: string, apiBase: string = '/api/ty')
       data: await fetcher([
         next ? `${apiBase}/?path=${path}&next=${next}` : `${apiBase}/?path=${path}`,
         hashedToken ?? undefined,
-      ]).catch(error => ({ i, path, error })),
+      ]).catch(error => ({ error })),
     }
   }
 
@@ -203,27 +205,32 @@ export async function* traverseFolder(path: string, apiBase: string = '/api/ty')
 
   // filter(() => true) removes gaps in the array
   while (pool.filter(() => true).length > 0) {
-    let info: { i: number; path: string; data: any }
-    try {
-      info = await Promise.race(pool.filter(() => true))
-    } catch (error: any) {
-      const { i, path, error: innerError } = error
+    const info: { i: number; path: string; data: any } = await Promise.race(pool.filter(() => true))
+    const { i, path, data } = info
+
+    // genTask 捕获的错误通过 data.error 传递
+    if (data?.error) {
+      const innerError = data.error
+      const status = innerError.status ?? 500
       // 4xx errors are identified as handleable errors
-      if (Math.floor(innerError.status / 100) === 4) {
+      if (Math.floor(status / 100) === 4) {
         delete pool[i]
+        // message 可能是 { error: '...' } 对象，也可能是字符串
+        const errMsg = typeof innerError.message === 'string'
+          ? innerError.message
+          : innerError.message?.error || innerError.message?.message || '请求失败'
         yield {
           path,
           meta: {},
           isFolder: true,
-          error: { status: innerError.status, message: innerError.message.error },
+          error: { status, message: errMsg },
         }
         continue
       } else {
-        throw error
+        throw innerError
       }
     }
 
-    const { i, path, data } = info
     if (!data || !data.folder) {
       throw new Error('Path is not folder')
     }

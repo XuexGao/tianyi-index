@@ -21,6 +21,13 @@ export default async function handler(_req: NextApiRequest, res: NextApiResponse
     }
     const buf = Buffer.from(await r.arrayBuffer())
 
+    // 安全：校验上游 Content-Type 为图片类型，防止非图片内容以本站同源执行 XSS
+    const upstreamContentType = r.headers.get('content-type') || ''
+    if (!upstreamContentType.startsWith('image/')) {
+      res.status(502).json({ error: 'upstream returned non-image content type' })
+      return
+    }
+
     // sharp 计算亮度，超时降级
     let isDark = false
     try {
@@ -32,14 +39,14 @@ export default async function handler(_req: NextApiRequest, res: NextApiResponse
       // 解析失败降级为不深色
     }
 
-    res.setHeader('Content-Type', r.headers.get('content-type') || 'image/jpeg')
+    res.setHeader('Content-Type', upstreamContentType)
     res.setHeader('Cache-Control', 'no-store')
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Expose-Headers', 'X-Bg-Dark')
     res.setHeader('X-Bg-Dark', isDark ? '1' : '0')
     res.status(200).send(buf)
-  } catch (e: any) {
-    res.status(502).json({ error: String(e?.message || e) })
+  } catch {
+    res.status(502).json({ error: 'Internal server error.' })
   }
 }
 

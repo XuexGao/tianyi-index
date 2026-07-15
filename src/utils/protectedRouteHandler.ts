@@ -13,7 +13,7 @@ export function driveFromApiBase(apiBase: string): Drive {
 }
 
 // Hash password token with SHA256
-function encryptToken(token: string): string {
+export function encryptToken(token: string): string {
   return sha256(token).toString()
 }
 
@@ -30,12 +30,13 @@ function constantTimeEqual(a: string, b: string): boolean {
   return diff === 0
 }
 
-// Fetch stored token from localStorage and encrypt with SHA256
+// Fetch stored token from localStorage.
+// 安全：localStorage 中只存储 SHA256 哈希，避免明文密码泄露（如 XSS 读取 localStorage）
 // path 应为剥离挂载前缀的后端路径；drive 决定查 ty 还是 od 的私密目录列表
 export function getStoredToken(path: string, drive: Drive = 'ty'): string | null {
   const storedToken =
     typeof window !== 'undefined' ? JSON.parse(localStorage.getItem(matchProtectedRoute(path, drive)) as string) : ''
-  return storedToken ? encryptToken(storedToken) : null
+  return storedToken ? storedToken : null
 }
 
 /**

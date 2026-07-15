@@ -17,8 +17,9 @@ function RssPage() {
 }
 
 export async function getServerSideProps({ req, res }: GetServerSidePropsContext) {
-  const host = req.headers.host || 'example.com'
-  const baseUrl = `https://${host}`
+  // 安全：优先使用环境变量配置的可信域名，避免 Host 头注入攻击
+  // 攻击者可伪造 Host 头让 RSS 中的链接指向恶意域名，污染阅读器订阅
+  const baseUrl = (process.env.SITE_URL || `https://${req.headers.host || 'example.com'}`).replace(/\/$/, '')
   const title = siteConfig.title
   const description = '天翼云网盘文件浏览器 —— 基于 OneDrive 与天翼云盘的双云盘文件分享站'
   const buildDate = new Date().toUTCString()

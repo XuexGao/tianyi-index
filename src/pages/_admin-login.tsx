@@ -25,7 +25,9 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const redirect = typeof router.query.redirect === 'string' ? router.query.redirect : '/@manage'
+  // 安全：校验 redirect 必须是站内路径，防止开放重定向至外部恶意站点
+  const rawRedirect = typeof router.query.redirect === 'string' ? router.query.redirect : '/@manage'
+  const redirect = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/@manage'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

@@ -11,10 +11,10 @@ import siteConfig from '../../../../config/site.config'
 function sanitiseQuery(query: string): string {
   const sanitisedQuery = query
     .replace(/'/g, "''")
-    .replace('<', ' &lt; ')
-    .replace('>', ' &gt; ')
-    .replace('?', ' ')
-    .replace('/', ' ')
+    .replace(/</g, ' &lt; ')
+    .replace(/>/g, ' &gt; ')
+    .replace(/\?/g, ' ')
+    .replace(/\//g, ' ')
   return encodeURIComponent(sanitisedQuery)
 }
 
@@ -52,7 +52,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       res.status(200).json(filtered)
     } catch (error: any) {
-      res.status(error?.response?.status ?? 500).json({ error: error?.response?.data ?? 'Internal server error.' })
+      console.error('[api/od/search] error:', error?.message)
+      res.status(error?.response?.status ?? 500).json({ error: 'Internal server error.' })
     }
   } else {
     res.status(200).json([])

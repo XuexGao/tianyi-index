@@ -5,7 +5,7 @@ import { useRouter } from 'next/router'
 import { FC, useState } from 'react'
 import { useTranslation } from 'next-i18next'
 
-import { matchProtectedRoute, Drive } from '../utils/protectedRouteHandler'
+import { matchProtectedRoute, Drive, encryptToken } from '../utils/protectedRouteHandler'
 import useLocalStorage from '../utils/useLocalStorage'
 
 const Auth: FC<{ redirect: string; drive?: Drive }> = ({ redirect, drive = 'ty' }) => {
@@ -41,7 +41,8 @@ const Auth: FC<{ redirect: string; drive?: Drive }> = ({ redirect, drive = 'ty' 
           }}
           onKeyPress={e => {
             if (e.key === 'Enter' || e.key === 'NumpadEnter') {
-              setPersistedToken(token)
+              // 安全：localStorage 只存 SHA256 哈希，避免明文密码持久化
+              setPersistedToken(encryptToken(token))
               router.reload()
             }
           }}
@@ -49,7 +50,8 @@ const Auth: FC<{ redirect: string; drive?: Drive }> = ({ redirect, drive = 'ty' 
         <button
           className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-500 focus:outline-none focus:ring focus:ring-blue-400"
           onClick={() => {
-            setPersistedToken(token)
+            // 安全：localStorage 只存 SHA256 哈希，避免明文密码持久化
+            setPersistedToken(encryptToken(token))
             router.reload()
           }}
         >

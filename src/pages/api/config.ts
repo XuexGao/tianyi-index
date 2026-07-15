@@ -2,8 +2,15 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import type { LoginResult } from '../../utils/tianyiAuth'
 import { cloud189Login } from '../../utils/tianyiAuth'
 import { getRedisStatus } from '../../utils/tianyiSessionStore'
+import { isAdminReq } from './auth/check'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // 安全：诊断端点暴露内部基础设施信息，需管理员鉴权
+  if (!(await isAdminReq(req))) {
+    res.status(401).json({ error: 'Admin session required.' })
+    return
+  }
+
   const U = process.env.TIANYI_USERNAME || ''
   const P = process.env.TIANYI_PASSWORD || ''
 

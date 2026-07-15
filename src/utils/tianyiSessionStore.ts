@@ -60,7 +60,7 @@ export async function saveTianyiSession(
     const payload = {
       cookies,
       username: options?.username || existing?.username || '',
-      password: options?.password || existing?.password || '',
+      // 安全：不持久化密码到 Redis，密码仅从环境变量读取
       updatedAt: Date.now(),
     }
     // 1 小时 TTL，每次访问续期

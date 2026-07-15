@@ -29,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 
-  const { path = '/', odpt = '', proxy = false } = req.query
+  const { path = '/', odpt = '', proxy } = req.query
 
   // 通过 cookie 判断 admin 状态（raw 下载是浏览器导航，自动带 cookie）
   // admin 时从 OneDrive 绝对根目录开始，忽略 BASE_DIRECTORY
@@ -69,12 +69,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if ('@microsoft.graph.downloadUrl' in data) {
       // Only proxy raw file content response for files up to 4MB
-      if (proxy && 'size' in data && data['size'] < 4194304) {
+      // 安全：proxy 参数需显式传 'true'，否则非空字符串（如 'false'）会被当真值
+      const shouldProxy = proxy === 'true'
+      if (shouldProxy && 'size' in data && data['size'] < 4194304) {
         const { headers, data: stream } = await axios.get(data['@microsoft.graph.downloadUrl'] as string, {
           responseType: 'stream',
         })
-        headers['Cache-Control'] = cacheControlHeader
-        res.writeHead(200, headers as AxiosResponseHeaders)
+        // 安全：仅转发白名单响应头，避免透传 Set-Cookie / Location 等
+        const safeHeaders: Record<string, any> = {
+          'Content-Type': headers['content-type'] || 'application/octet-stream',
+          'Content-Length': headers['content-length'] || '',
+          'ETag': headers['etag'] || '',
+          'Last-Modified': headers['last-modified'] || '',
+          'Cache-Control': cacheControlHeader,
+        }
+        res.writeHead(200, safeHeaders as AxiosResponseHeaders)
         stream.pipe(res)
       } else {
         res.redirect(data['@microsoft.graph.downloadUrl'])

@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { isAdminReq } from './check'
+import { isSameOriginReq } from '../../../utils/adminAuth'
 import { deleteTianyiSession } from '../../../utils/tianyiSessionStore'
 import { getOdAuthTokens, storeOdAuthTokens } from '../../../utils/odAuthTokenStore'
 import {
@@ -30,6 +31,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 
+  // CSRF 防护：校验同源
+  if (!isSameOriginReq(req)) {
+    res.status(403).json({ error: '跨站请求被拒绝' })
+    return
+  }
+
   const isAdmin = await isAdminReq(req)
   if (!isAdmin) {
     res.status(401).json({ error: '未登录或会话已过期' })
@@ -52,7 +59,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         res.status(400).json({ error: `未知操作: ${action}` })
     }
   } catch (e: any) {
-    res.status(500).json({ error: e?.message || String(e) })
+    // 安全：不向客户端透传内部错误详情，仅记录日志
+    console.error('[manage] 操作失败:', e)
+    res.status(500).json({ error: '服务器内部错误，请稍后重试' })
   }
 }
 

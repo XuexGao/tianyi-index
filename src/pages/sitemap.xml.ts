@@ -37,8 +37,9 @@ const STATIC_PAGES: { path: string; changefreq: string; priority: string }[] = [
 ]
 
 export async function getServerSideProps({ req, res }: GetServerSidePropsContext) {
-  const host = req.headers.host || 'example.com'
-  const baseUrl = `https://${host}`
+  // 安全：优先使用环境变量配置的可信域名，避免 Host 头注入攻击
+  // 攻击者可伪造 Host 头让 sitemap 中的 URL 指向恶意域名
+  const baseUrl = (process.env.SITE_URL || `https://${req.headers.host || 'example.com'}`).replace(/\/$/, '')
   const lastmod = new Date().toISOString()
 
   const urls: string[] = []
