@@ -10,6 +10,7 @@ import { compareHashedToken } from '../../../utils/protectedRouteHandler'
 import { getOdAuthTokens, storeOdAuthTokens } from '../../../utils/odAuthTokenStore'
 import { isAdminReq } from '../auth/check'
 import { runCorsMiddleware } from './raw'
+import { getProtectedRoutesOd } from '../../../utils/protectedRoutesStore'
 
 const basePath = pathPosix.resolve('/', process.env.BASE_DIRECTORY || '/')
 const clientId = process.env.CLIENT_ID || ''
@@ -78,15 +79,18 @@ export async function getAccessToken(): Promise<string> {
 
 /**
  * 匹配 OneDrive 侧的受保护路由
- * 注意：siteConfig.protectedRoutesOd 是 OneDrive 专属的私密目录列表，
+ * 注意：protectedRoutesOd 是 OneDrive 专属的私密目录列表，
  * 与天翼云的 protectedRoutes 分开配置，互不影响。
  * cleanPath 是相对于 OneDrive BASE_DIRECTORY 的路径（已剥离挂载前缀 /OneDrive）。
+ *
+ * 读取 Redis 中的动态配置（管理员后台增删的私密目录），未配置时回退到环境变量。
+ * 这样管理员在后台新增的私密目录会立即生效，无需重新部署。
  */
-export function getAuthTokenPath(path: string) {
+export async function getAuthTokenPath(path: string): Promise<string> {
   // Ensure trailing slashes to compare paths component by component. Same for protectedRoutes.
   // Since OneDrive ignores case, lower case before comparing. Same for protectedRoutes.
   path = path.toLowerCase() + '/'
-  const protectedRoutes = (siteConfig.protectedRoutesOd as string[]) || []
+  const protectedRoutes = await getProtectedRoutesOd()
   let authTokenPath = ''
   for (let r of protectedRoutes) {
     if (typeof r !== 'string') continue
@@ -109,7 +113,7 @@ export async function checkAuthRoute(
   accessToken: string,
   odTokenHeader: string
 ): Promise<{ code: 200 | 401 | 404 | 500; message: string }> {
-  const authTokenPath = getAuthTokenPath(cleanPath)
+  const authTokenPath = await getAuthTokenPath(cleanPath)
 
   if (authTokenPath === '') {
     return { code: 200, message: '' }
@@ -123,7 +127,10 @@ export async function checkAuthRoute(
       },
     })
 
-    const odProtectedToken = await axios.get(token.data['@microsoft.graph.downloadUrl'])
+    const odProtectedToken = await axios.get(token.data['@microsoft.graph.downloadUrl'], {
+      timeout: 15000,
+      maxRedirects: 5,
+    })
 
     if (
       !compareHashedToken({

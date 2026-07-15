@@ -16,6 +16,17 @@ function getEnvPassword(): string { return process.env.TIANYI_PASSWORD || '' }
 function getDefaultFolderId(): string { return process.env.DEFAULT_FOLDER_ID || '-11' }
 
 /**
+ * 安全解码 URL 组件，遇到畸形 % 序列不抛错而是原样返回
+ */
+function safeDecodeURIComponent(s: string): string {
+  try {
+    return decodeURIComponent(s)
+  } catch {
+    return s
+  }
+}
+
+/**
  * 获取或创建天翼云会话
  * 注意：所有可能抛错的调用都已包裹 try/catch，避免错误冒泡到 Next.js 顶层
  * 导致整个 API 返回 HTML 500 页面（而非可读的 JSON 错误）。
@@ -131,7 +142,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let currentFolderId = isAdmin ? '-11' : getDefaultFolderId()
 
     for (let i = 0; i < segments.length; i++) {
-      const segment = decodeURIComponent(segments[i])
+      const segment = safeDecodeURIComponent(segments[i])
       const listResult = await getFiles(cookies, currentFolderId, username, password)
 
       // getFiles 可能在会话失效后重新登录，这里同步更新本地 cookies 供后续调用使用

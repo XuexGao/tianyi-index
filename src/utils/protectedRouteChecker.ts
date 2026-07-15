@@ -1,8 +1,8 @@
 import axios from 'axios'
 import sha256 from 'crypto-js/sha256'
 
-import siteConfig from '../../config/site.config'
 import { getFiles, getDownloadLink } from './tianyiClient'
+import { getProtectedRoutes } from './protectedRoutesStore'
 
 const DEFAULT_FOLDER_ID = process.env.DEFAULT_FOLDER_ID || '-11'
 
@@ -31,9 +31,13 @@ function setCachedPassword(route: string, data: string | null) {
  * 检查解码后的路径是否匹配某个受保护路由。
  * 与前端 matchProtectedRoute 不同，这里直接对解码路径做 startsWith 比较，
  * 避免编码不一致导致匹配失败。
+ *
+ * 读取 Redis 中的动态配置（管理员后台增删的私密目录），未配置时回退到环境变量。
+ * 这样管理员在后台新增的私密目录会立即生效，无需重新部署。
  */
-export function findProtectedRoute(decodedPath: string): string {
-  for (const r of siteConfig.protectedRoutes) {
+export async function findProtectedRoute(decodedPath: string): Promise<string> {
+  const routes = await getProtectedRoutes()
+  for (const r of routes) {
     if (r && (decodedPath === r || decodedPath.startsWith(r + '/'))) {
       return r
     }
@@ -132,7 +136,7 @@ export async function checkProtectedRoute(
   username: string,
   password: string,
 ): Promise<boolean> {
-  const protectedRoutePath = findProtectedRoute(decodedPath)
+  const protectedRoutePath = await findProtectedRoute(decodedPath)
   if (!protectedRoutePath) {
     return true // 路径不受保护，放行
   }

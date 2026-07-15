@@ -93,7 +93,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     return
   } catch (error: any) {
-    res.status(error?.response?.status ?? 500).json({ error: error?.response?.data ?? 'Internal server error.' })
+    // 安全：不向客户端透传上游 Graph API 错误详情，仅记录日志
+    console.error('[api/od/raw] error:', error?.message)
+    res.status(error?.response?.status ?? 500).json({ error: 'Internal server error.' })
     return
   }
 }

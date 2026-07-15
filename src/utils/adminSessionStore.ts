@@ -104,7 +104,9 @@ export async function listAdminSessions(): Promise<Array<{ token: string; payloa
       const raw = await kv.get(key)
       if (!raw) continue
       const token = key.split(SESSION_PREFIX)[1]
-      result.push({ token, payload: JSON.parse(raw) })
+      // 安全：掩码 token，避免在诊断接口中暴露可用凭据导致 session 劫持
+      const maskedToken = token.length > 12 ? `${token.slice(0, 8)}…${token.slice(-4)}` : '…'
+      result.push({ token: maskedToken, payload: JSON.parse(raw) })
     }
     return result
   } catch {

@@ -4,6 +4,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { encodePath, getAccessToken } from '.'
 import apiConfig from '../../../../config/api.config'
 import siteConfig from '../../../../config/site.config'
+import { getProtectedRoutesOd } from '../../../utils/protectedRoutesStore'
 
 /**
  * Sanitize the search query
@@ -42,7 +43,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // 安全：过滤掉受保护目录下的结果，避免搜索绕过目录密码保护泄露文件元数据。
       // 采用粗匹配（命中即隐藏，宁可多隐藏也不泄露）。
-      const protectedRoutesOd = ((siteConfig.protectedRoutesOd as string[]) || [])
+      // 读取 Redis 中的动态配置，管理员后台增删的私密目录也会被过滤。
+      const protectedRoutesOd = (await getProtectedRoutesOd())
         .map(r => r.toLowerCase().replace(/\/$/, ''))
         .filter(Boolean)
       const filtered = (data.value as any[]).filter(item => {

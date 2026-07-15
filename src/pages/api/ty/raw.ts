@@ -10,6 +10,17 @@ import { isAdminReq } from '../auth/check'
 
 const DEFAULT_USER_ID = 'default_user'
 
+/**
+ * 安全解码 URL 组件，遇到畸形 % 序列不抛错而是原样返回
+ */
+function safeDecodeURIComponent(s: string): string {
+  try {
+    return decodeURIComponent(s)
+  } catch {
+    return s
+  }
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { path = '/', odpt = '' } = req.query
 
@@ -76,7 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let fileName: string | null = null
 
     for (let i = 0; i < segments.length; i++) {
-      const segment = decodeURIComponent(segments[i])
+      const segment = safeDecodeURIComponent(segments[i])
       const result = await getFiles(cookies, currentFolderId, username, password)
 
       // getFiles 可能在会话失效后重新登录，同步新 cookies 供后续调用使用
@@ -99,16 +110,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (matchedFolder) {
         currentFolderId = matchedFolder.id
         if (i < segments.length - 1) continue
-        // 最后一段是文件夹 -> 不支持下载文件夹，返回第一个文件
-        const innerResult = await getFiles(cookies, currentFolderId, username, password)
-        if (innerResult.data?.cookies) {
-          cookies = innerResult.data.cookies
-        }
-        if (innerResult.status === 'success' && innerResult.data?.files.length) {
-          fileId = innerResult.data.files[0].id
-          fileName = innerResult.data.files[0].name
-        }
-        break
+        // 最后一段是文件夹 -> 不支持下载文件夹，返回 400
+        res.status(400).json({ error: 'Cannot download a folder.' })
+        return
       }
 
       // 检查文件匹配
