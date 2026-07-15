@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { GetServerSidePropsContext } from 'next'

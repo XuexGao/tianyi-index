@@ -9,7 +9,8 @@ import type { NextApiRequest, NextApiResponse } from 'next'
  *
  * 唯一的性能优化：sharp 处理加超时降级（1.5s），避免原生模块冷启动阻塞响应。
  */
-const UPSTREAM = 'https://api.elaina.cat/random/'
+// 壁纸上游可配置：默认使用 elaina 随机图源，可通过 WALLPAPER_UPSTREAM 环境变量替换
+const UPSTREAM = process.env.WALLPAPER_UPSTREAM || 'https://api.elaina.cat/random/'
 const SHARP_TIMEOUT = 1500 // sharp 处理超时降级
 
 export default async function handler(_req: NextApiRequest, res: NextApiResponse) {

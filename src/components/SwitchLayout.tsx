@@ -24,11 +24,7 @@ const SwitchLayout = () => {
           <span className="pointer-events-none flex items-center justify-end">
             <FontAwesomeIcon className="mr-2 h-3 w-3" icon={preferredLayout.icon} />
             <span>
-              {
-                // t('Grid')
-                // t('List')
-                t(preferredLayout.name)
-              }
+              {t(preferredLayout.name)}
             </span>
           </span>
         </Listbox.Button>
@@ -60,11 +56,7 @@ const SwitchLayout = () => {
               >
                 <FontAwesomeIcon className="mr-2 h-3 w-3" icon={layout.icon} />
                 <span className={layout.name === preferredLayout.name ? 'font-medium' : 'font-normal'}>
-                  {
-                    // t('Grid')
-                    // t('List')
-                    t(layout.name)
-                  }
+                  {t(layout.name)}
                 </span>
                 {layout.name === preferredLayout.name && (
                   <span className="absolute inset-y-0 right-3 flex items-center">

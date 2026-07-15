@@ -1,11 +1,16 @@
 import { useRouter } from 'next/router'
+import type { OdFileObject } from '../../types'
 import { getBaseUrl } from '../../utils/getBaseUrl'
 import { resolveDrive, normalizeDrive } from '../../utils/driveResolver'
 import { getStoredToken } from '../../utils/protectedRouteHandler'
 import DownloadButtonGroup from '../DownloadBtnGtoup'
 import { DownloadBtnContainer } from './Containers'
 
-const PDFEmbedPreview: React.FC<{ file: any }> = ({ file }) => {
+// PDF 查看器地址可配置：默认使用 mozilla 官方托管版本，
+// 生产环境如需自托管或换源，通过 NEXT_PUBLIC_PDF_VIEWER_URL 配置
+const PDF_VIEWER_URL = process.env.NEXT_PUBLIC_PDF_VIEWER_URL || 'https://mozilla.github.io/pdf.js/web/viewer.html'
+
+const PDFEmbedPreview: React.FC<{ file: OdFileObject }> = ({ file }) => {
   const { asPath } = useRouter()
   const { apiBase, relPath, drive } = resolveDrive(asPath)
   const backendPath = relPath === '' ? '/' : relPath
@@ -14,7 +19,7 @@ const PDFEmbedPreview: React.FC<{ file: any }> = ({ file }) => {
   const pdfPath = encodeURIComponent(
     `${getBaseUrl()}${apiBase}/raw/?path=${backendPath}${hashedToken ? `&odpt=${hashedToken}` : ''}`
   )
-  const url = `https://mozilla.github.io/pdf.js/web/viewer.html?file=${pdfPath}`
+  const url = `${PDF_VIEWER_URL}?file=${pdfPath}`
 
   return (
     <div>

@@ -41,7 +41,7 @@ const VideoPlayer: FC<{
         track?.setAttribute('src', URL.createObjectURL(resp.data))
       })
       .catch(() => {
-        console.log('Could not load subtitle.')
+        console.warn('Could not load subtitle.')
       })
 
     if (isFlv) {

@@ -56,10 +56,16 @@ export function extractAuthCodeFromRedirected(url: string): string {
   return params.get('code') ?? ''
 }
 
+// OAuth 配置结构（由 /api/od/config 返回）
+interface OdClientConfig {
+  clientId: string
+  clientSecret: string
+}
+
 // After a successful authorisation, the code returned from the Microsoft OAuth 2.0 authorization URL
 // will be used to request an access token. This function requests the access token with the authorisation code
 // and returns the access token and refresh token on success.
-export async function requestTokenWithAuthCode(code: string, config: any): Promise<
+export async function requestTokenWithAuthCode(code: string, config: OdClientConfig): Promise<
   | { expiryTime: string; accessToken: string; refreshToken: string }
   | { error: string; errorDescription: string; errorUri: string }
 > {

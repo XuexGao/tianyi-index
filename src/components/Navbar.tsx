@@ -6,7 +6,7 @@ import toast, { Toaster } from 'react-hot-toast'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/router'
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'next-i18next'
 
 import siteConfig from '../../config/site.config'
@@ -18,6 +18,14 @@ const Navbar = () => {
 
   const [tokenPresent, setTokenPresent] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
+  // 保存清除 token 后的 reload 定时器，组件卸载时清理避免回调作用于已卸载组件
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current)
+    }
+  }, [])
 
   // 采样背景图顶部亮度，深色背景时 navbar 文字自动变浅
   const bgDark = useBackgroundBrightness()
@@ -48,14 +56,14 @@ const Navbar = () => {
     })
 
     toast.success(t('Cleared all tokens'))
-    setTimeout(() => {
+    reloadTimer.current = setTimeout(() => {
       router.reload()
     }, 1000)
   }
 
   const icon = siteConfig.icon;
   let IconComponent;
-  let iconProps: any = {};
+  let iconProps: Record<string, unknown> = {};
 
   if (icon.startsWith('/')) {
     // If the icon is a URL, use the Image component
@@ -78,8 +86,7 @@ const Navbar = () => {
 
       <div className="mx-auto flex w-full items-center justify-between space-x-4 px-4 py-1">
         <Link href="/" passHref className={`flex items-center space-x-2 py-2 hover:opacity-80 md:p-2 ${textColor} dark:text-white`}>
-          {/*<Image src={siteConfig.icon} alt="icon" width="25" height="25" priority />*/}
-          <IconComponent {...iconProps} />
+          <IconComponent {...(iconProps as any)} />
           <span className="font-bold">{siteConfig.title}</span>
         </Link>
 
@@ -96,20 +103,12 @@ const Navbar = () => {
                 className="flex items-center space-x-2 hover:opacity-80"
               >
                 <FontAwesomeIcon icon={['fab', l.name.toLowerCase() as IconName]} />
-                {/*<span className="hidden text-sm font-medium md:inline-block">
-                  {
-                    // Append link name comments here to add translations
-                    // t('Weibo')
-                    t(l.name)
-                  }
-                </span>*/}
               </a>
             ))}
 
           {siteConfig.email && (
             <a href={siteConfig.email} className="flex items-center space-x-2 hover:opacity-80">
               <FontAwesomeIcon icon={['far', 'envelope']} />
-              {/*<span className="hidden text-sm font-medium md:inline-block">{t('Email')}</span>*/}
             </a>
           )}
 
