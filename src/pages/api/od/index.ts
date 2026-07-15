@@ -8,6 +8,7 @@ import siteConfig from '../../../../config/site.config'
 import { revealObfuscatedToken } from '../../../utils/oAuthHandler'
 import { compareHashedToken } from '../../../utils/protectedRouteHandler'
 import { getOdAuthTokens, storeOdAuthTokens } from '../../../utils/odAuthTokenStore'
+import { isAdminReq } from '../auth/check'
 import { runCorsMiddleware } from './raw'
 
 const basePath = pathPosix.resolve('/', process.env.BASE_DIRECTORY || '/')
@@ -18,10 +19,11 @@ const clientSecret = revealObfuscatedToken(process.env.CLIENT_SECRET || '')
  * Encode the path of the file relative to the base directory
  *
  * @param path Relative path of the file to the base directory
+ * @param base Base directory to resolve from (defaults to BASE_DIRECTORY env)
  * @returns Absolute path of the file inside OneDrive
  */
-export function encodePath(path: string): string {
-  let encodedPath = pathPosix.join(basePath, path)
+export function encodePath(path: string, base: string = basePath): string {
+  let encodedPath = pathPosix.join(base, path)
   if (encodedPath === '/' || encodedPath === '') {
     return ''
   }
@@ -164,6 +166,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   res.setHeader('Cache-Control', apiConfig.cacheControlHeader)
 
+  // admin 参数：管理员路由请求从 OneDrive 绝对根目录开始（忽略 BASE_DIRECTORY）
+  const adminFlag = req.query.admin === '1'
+  let isAdmin = false
+  if (adminFlag) {
+    isAdmin = await isAdminReq(req)
+    if (!isAdmin) {
+      res.status(403).json({ error: 'Admin session required.' })
+      return
+    }
+  }
+
   if (path === '[...path]') {
     res.status(400).json({ error: 'No path specified.' })
     return
@@ -195,7 +208,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader('Cache-Control', 'no-cache')
   }
 
-  const requestPath = encodePath(cleanPath)
+  // admin 请求从 OneDrive 绝对根目录开始，忽略 BASE_DIRECTORY 挂载点
+  const requestPath = encodePath(cleanPath, isAdmin ? '/' : basePath)
   const requestUrl = `${apiConfig.driveApi}/root${requestPath}`
   const isRoot = requestPath === ''
 

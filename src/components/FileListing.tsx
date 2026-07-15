@@ -200,7 +200,8 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
   // 传入 SSR 初始值避免首次渲染闪现未登录内容
   const isAdmin = useIsAdmin(ssrIsAdmin)
   // 根据当前浏览器 URL 路径解析所在云盘，得到 apiBase 和剥离挂载前缀的相对路径
-  const { apiBase, relPath, drive } = resolveDrive(router.asPath)
+  const resolved = resolveDrive(router.asPath)
+  const { apiBase, relPath, drive } = resolved
   // 虚拟根目录的 apiBase 是 '/api/ty'（虚拟根不实际请求，但用真实 API base 防竞态）
   const apiBaseTyped = apiBase as '/api/ty' | '/api/od'
   // 虚拟根目录不会触发认证/下载，统一转成 'ty' 兼容 Drive 类型
@@ -219,7 +220,8 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
 
   const { data: swrData, error, size, setSize } = useProtectedSWRInfinite(
     isVirtualAdmin ? '' : backendPath,
-    apiBaseTyped
+    apiBaseTyped,
+    resolved.admin
   )
 
   // /Admin 虚拟目录：构造两个云盘入口文件夹数据，不依赖云盘 API

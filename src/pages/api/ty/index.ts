@@ -7,6 +7,7 @@ import { cloud189Login } from '../../../utils/tianyiAuth'
 import { getFiles } from '../../../utils/tianyiClient'
 import { getTianyiSession, saveTianyiSession } from '../../../utils/tianyiSessionStore'
 import { checkProtectedRoute } from '../../../utils/protectedRouteChecker'
+import { isAdminReq } from '../auth/check'
 
 const DEFAULT_USER_ID = 'default_user'
 
@@ -72,6 +73,17 @@ async function getOrCreateSession(): Promise<
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   res.setHeader('Cache-Control', apiConfig.cacheControlHeader)
 
+  // admin 参数：管理员路由请求从绝对根目录开始（忽略 DEFAULT_FOLDER_ID）
+  const adminFlag = req.query.admin === '1' || req.body?.admin === true
+  let isAdmin = false
+  if (adminFlag) {
+    isAdmin = await isAdminReq(req)
+    if (!isAdmin) {
+      res.status(403).json({ error: 'Admin session required.' })
+      return
+    }
+  }
+
   // 路径参数
   let rawPath = '/'
   if (req.method === 'GET') {
@@ -115,7 +127,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 逐层解析路径 -> folderId
-    let currentFolderId = getDefaultFolderId()
+    // admin 请求从天翼云绝对根目录（-11）开始，忽略 DEFAULT_FOLDER_ID 挂载点
+    let currentFolderId = isAdmin ? '-11' : getDefaultFolderId()
 
     for (let i = 0; i < segments.length; i++) {
       const segment = decodeURIComponent(segments[i])

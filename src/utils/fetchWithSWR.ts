@@ -28,17 +28,20 @@ export async function fetcher([url, token]: [url: string, token?: string]): Prom
 /**
  * Paging with useSWRInfinite + protected token support
  * @param path Current query directory path
+ * @param apiBase API base path, e.g. '/api/ty' or '/api/od'
+ * @param admin 是否以管理员身份请求（忽略挂载基础目录，从云盘绝对根目录开始）
  * @returns useSWRInfinite API
  */
-export function useProtectedSWRInfinite(path: string = '', apiBase: string = '/api/ty') {
+export function useProtectedSWRInfinite(path: string = '', apiBase: string = '/api/ty', admin: boolean = false) {
   const hashedToken = getStoredToken(path, driveFromApiBase(apiBase))
+  const adminParam = admin ? '&admin=1' : ''
 
   function getNextKey(pageIndex: number, previousPageData: OdAPIResponse): (string | null)[] | null {
     // path 为空字符串时视为虚拟根，不发起请求
     if (path === '') return null
     if (previousPageData && !previousPageData.folder) return null
-    if (pageIndex === 0) return [`${apiBase}/?path=${path}`, hashedToken]
-    return [`${apiBase}/?path=${path}&next=${previousPageData.next}`, hashedToken]
+    if (pageIndex === 0) return [`${apiBase}/?path=${path}${adminParam}`, hashedToken]
+    return [`${apiBase}/?path=${path}&next=${previousPageData.next}${adminParam}`, hashedToken]
   }
 
   const revalidationOptions = {

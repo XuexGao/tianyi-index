@@ -27,6 +27,8 @@ export interface DriveResolution {
   relPath: string
   /** 当前云盘的挂载前缀，如 '/' 或 '/OneDrive' */
   mountPath: string
+  /** 是否为管理员路由（/Admin 下的云盘路径），API 会忽略挂载基础目录从绝对根目录开始 */
+  admin: boolean
 }
 
 const TY_MOUNT = siteConfig.tianyiMountPath // '/' 或 '/xxx'
@@ -111,10 +113,11 @@ export function resolveDrive(urlPath: string): DriveResolution {
       apiBase: '/api/ty',
       relPath: '/',
       mountPath: ADMIN_MOUNT,
+      admin: true,
     }
   }
 
-  // /Admin/天翼云盘/... → ty，relPath 为剥离后的路径
+  // /Admin/天翼云盘/... → ty，relPath 为剥离后的路径，admin=true 从绝对根目录开始
   if (isAdmin && pathStartsWithMount(cleanPath, ADMIN_TY_MOUNT)) {
     const relPath = stripMount(cleanPath, ADMIN_TY_MOUNT)
     return {
@@ -122,10 +125,11 @@ export function resolveDrive(urlPath: string): DriveResolution {
       apiBase: '/api/ty',
       relPath,
       mountPath: ADMIN_TY_MOUNT,
+      admin: true,
     }
   }
 
-  // /Admin/OneDrive/... → od，relPath 为剥离后的路径
+  // /Admin/OneDrive/... → od，relPath 为剥离后的路径，admin=true 从绝对根目录开始
   if (isAdmin && pathStartsWithMount(cleanPath, ADMIN_OD_MOUNT)) {
     const relPath = stripMount(cleanPath, ADMIN_OD_MOUNT)
     return {
@@ -133,6 +137,7 @@ export function resolveDrive(urlPath: string): DriveResolution {
       apiBase: '/api/od',
       relPath,
       mountPath: ADMIN_OD_MOUNT,
+      admin: true,
     }
   }
 
@@ -146,6 +151,7 @@ export function resolveDrive(urlPath: string): DriveResolution {
       apiBase: '/api/od',
       relPath,
       mountPath: OD_MOUNT,
+      admin: false,
     }
   }
 
@@ -156,6 +162,7 @@ export function resolveDrive(urlPath: string): DriveResolution {
     apiBase: '/api/ty',
     relPath,
     mountPath: TY_MOUNT,
+    admin: false,
   }
 }
 
