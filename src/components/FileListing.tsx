@@ -232,9 +232,11 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
   const { ref: fileListRef, phase: filePhase, maxH: fileListMaxH } = useExpandTransition(isLoading)
 
   // 天翼云根目录出错时，仍保留虚拟文件夹入口（OneDrive、Admin）
+  // admin 路径不构造虚拟入口，直接显示错误
   const tyErrorWithVirtual =
     error &&
     error.status !== 401 &&
+    !resolved.admin &&
     drive === 'ty' &&
     backendPath === '/' &&
     siteConfig.tianyiMountPath === '/'
@@ -339,7 +341,10 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
     folderChildren = [].concat(...responses.map(r => r.folder.value)) as OdFolderObject['value']
 
     // 在天翼云根目录注入虚拟文件夹入口
+    // 注意：admin 路径（/Admin 下的云盘）不注入，避免在 /Admin/天翼云盘 里
+    // 重复出现 Admin 和 OneDrive 入口
     if (
+      !resolved.admin &&
       drive === 'ty' &&
       backendPath === '/' &&
       siteConfig.tianyiMountPath === '/'
