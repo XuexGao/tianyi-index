@@ -229,16 +229,15 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
   const isLoading = !data && !error
   const { ref: fileListRef, phase: filePhase, maxH: fileListMaxH } = useExpandTransition(isLoading)
 
-  // 天翼云根目录出错时，登录用户仍保留 Admin 入口文件夹
-  const tyErrorWithAdmin =
+  // 天翼云根目录出错时，仍保留虚拟文件夹入口（OneDrive、Admin）
+  const tyErrorWithVirtual =
     error &&
     error.status !== 401 &&
-    isAdmin &&
     drive === 'ty' &&
     backendPath === '/' &&
     siteConfig.tianyiMountPath === '/'
 
-  if (error && !tyErrorWithAdmin) {
+  if (error && !tyErrorWithVirtual) {
     return (
       <PreviewContainer>
         {error.status === 401 ? (
@@ -311,36 +310,64 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
   let folderChildren: OdFolderObject['value'] = []
   let readmeFiles: OdFolderChildren[] = []
 
-  // 天翼云根目录出错时，登录用户构造只含 Admin 入口的列表
-  if (tyErrorWithAdmin) {
-    const virtualAdminFolder: OdFolderChildren = {
-      id: VIRTUAL_ADMIN_FOLDER_ID,
-      name: 'Admin',
-      size: 0,
-      lastModifiedDateTime: new Date().toISOString(),
-      folder: { childCount: 0, view: { sortBy: 'name', sortOrder: 'ascending', viewType: 'thumbnails' } },
+  // 天翼云根目录出错时，构造只含虚拟入口的列表
+  if (tyErrorWithVirtual) {
+    const virtualFolders: OdFolderChildren[] = []
+    if (isAdmin) {
+      virtualFolders.push({
+        id: VIRTUAL_ADMIN_FOLDER_ID,
+        name: 'Admin',
+        size: 0,
+        lastModifiedDateTime: new Date().toISOString(),
+        folder: { childCount: 0, view: { sortBy: 'name', sortOrder: 'ascending', viewType: 'thumbnails' } },
+      })
     }
-    folderChildren = [virtualAdminFolder]
+    if (ONEDRIVE_ENABLED) {
+      const odFolderName = siteConfig.onedriveMountPath.split('/').pop() || 'OneDrive'
+      virtualFolders.push({
+        id: VIRTUAL_ONEDRIVE_FOLDER_ID,
+        name: odFolderName,
+        size: 0,
+        lastModifiedDateTime: new Date().toISOString(),
+        folder: { childCount: 0, view: { sortBy: 'name', sortOrder: 'ascending', viewType: 'thumbnails' } },
+      })
+    }
+    folderChildren = virtualFolders
   } else if (data && responses.length > 0 && 'folder' in responses[0]) {
     folderChildren = [].concat(...responses.map(r => r.folder.value)) as OdFolderObject['value']
 
-    // 登录后在天翼云根目录注入 Admin 虚拟文件夹入口
+    // 在天翼云根目录注入虚拟文件夹入口
     if (
-      isAdmin &&
       drive === 'ty' &&
       backendPath === '/' &&
       siteConfig.tianyiMountPath === '/'
     ) {
-      const hasConflict = folderChildren.some(c => c.name === 'Admin')
-      if (!hasConflict) {
-        const virtualAdminFolder: OdFolderChildren = {
+      const virtualFolders: OdFolderChildren[] = []
+      // 登录后注入 Admin 入口
+      if (isAdmin && !folderChildren.some(c => c.name === 'Admin')) {
+        virtualFolders.push({
           id: VIRTUAL_ADMIN_FOLDER_ID,
           name: 'Admin',
           size: 0,
           lastModifiedDateTime: new Date().toISOString(),
           folder: { childCount: 0, view: { sortBy: 'name', sortOrder: 'ascending', viewType: 'thumbnails' } },
+        })
+      }
+      // 注入 OneDrive 入口（无论是否登录）
+      if (ONEDRIVE_ENABLED) {
+        const odFolderName = siteConfig.onedriveMountPath.split('/').pop() || 'OneDrive'
+        if (!folderChildren.some(c => c.name === odFolderName)) {
+          virtualFolders.push({
+            id: VIRTUAL_ONEDRIVE_FOLDER_ID,
+            name: odFolderName,
+            size: 0,
+            lastModifiedDateTime: new Date().toISOString(),
+            folder: { childCount: 0, view: { sortBy: 'name', sortOrder: 'ascending', viewType: 'thumbnails' } },
+          })
         }
-        folderChildren = [virtualAdminFolder, ...folderChildren]
+      }
+      if (virtualFolders.length > 0) {
+        folderChildren = [...virtualFolders, ...folderChildren]
       }
     }
 
@@ -539,7 +566,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
 
         {/* 内容层：measuring 开始渲染（测高度），expanding 淡入，done 正常显示
             FolderListLayout/FolderGridLayout 自带 od-files-container 毛玻璃 */}
-        {(data || tyErrorWithAdmin) && filePhase !== 'loading' && (
+        {(data || tyErrorWithVirtual) && filePhase !== 'loading' && (
           <>
             {layout.name === 'Grid' ? <FolderGridLayout {...folderProps} /> : <FolderListLayout {...folderProps} />}
 
@@ -589,7 +616,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
       ))}
 
       {/* 天翼云超时/出错时，错误信息卡片放在 README 位置 */}
-      {tyErrorWithAdmin && (
+      {tyErrorWithVirtual && (
         <div className="mt-4">
           <PreviewContainer>
             <div className="mb-2 text-sm font-bold text-gray-600 dark:text-gray-300">
