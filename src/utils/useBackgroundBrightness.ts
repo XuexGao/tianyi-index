@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 /**
  * 监听背景图亮度变化，返回是否深色背景。
  *
- * 亮度由 BackgroundImage 组件通过 /api/wallpaper 服务端计算，
+ * 亮度由 BackgroundImage 组件在图片加载后采样计算，
  * 通过全局事件 'bg-dark-change' 通知，同时存到 window.__bgDark。
  *
  * 系统暗色模式优先：直接视为深色。

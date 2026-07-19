@@ -22,6 +22,7 @@ class MyDocument extends Document<{ isAdmin: boolean }> {
         <Head>
           <meta name="description" content="天翼云网盘文件浏览器" />
           <link rel="icon" href="/favicon.ico" />
+          <link rel="preload" href="/api/wallpaper/" as="image" />
 
           {/* DNS 预解析 & 预连接，加速字体和 CDN 资源加载 */}
           <link rel="dns-prefetch" href="//npm.elemecdn.com" />
