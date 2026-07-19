@@ -374,7 +374,10 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
         }
       }
       if (virtualFolders.length > 0) {
-        folderChildren = [...virtualFolders, ...folderChildren]
+        const folders = [...virtualFolders, ...folderChildren.filter(c => c.folder)].sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+        )
+        folderChildren = [...folders, ...folderChildren.filter(c => !c.folder)]
       }
     }
 
