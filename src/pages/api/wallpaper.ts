@@ -21,7 +21,7 @@ export default async function handler(_req: NextApiRequest, res: NextApiResponse
     res.setHeader('Content-Type', contentType)
     const contentLength = upstream.headers.get('content-length')
     if (contentLength) res.setHeader('Content-Length', contentLength)
-    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400')
+    res.setHeader('Cache-Control', 'no-store')
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.statusCode = 200
 

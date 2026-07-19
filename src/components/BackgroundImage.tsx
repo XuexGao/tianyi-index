@@ -33,7 +33,7 @@ function updateBackgroundBrightness(event: SyntheticEvent<HTMLImageElement>) {
 export default function BackgroundImage() {
   return (
     <div id="bg-wallpaper" aria-hidden="true">
-      <img id="bg-wallpaper-img" src="/api/wallpaper/" alt="" onLoad={updateBackgroundBrightness} />
+      <img id="bg-wallpaper-img" src="/api/wallpaper/?v=2" alt="" onLoad={updateBackgroundBrightness} />
     </div>
   )
 }
