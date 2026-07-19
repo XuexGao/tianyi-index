@@ -63,6 +63,15 @@ export const DownloadButton = ({
   )
 }
 
+export const downloadFile = (url: string) => {
+  const link = document.createElement('a')
+  link.href = url
+  link.download = ''
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
 const DownloadButtonGroup = () => {
   const { asPath } = useRouter()
   // 用 resolveDrive 拿到剥离挂载前缀的后端路径和云盘类型
@@ -87,7 +96,9 @@ const DownloadButtonGroup = () => {
       />
       <div className="flex flex-wrap justify-center gap-2">
         <DownloadButton
-          onClickCallback={() => window.open(`${apiBase}/raw/?path=${backendPath}${hashedToken ? `&odpt=${hashedToken}` : ''}`)}
+          onClickCallback={() =>
+            downloadFile(`${apiBase}/raw/?path=${backendPath}${hashedToken ? `&odpt=${hashedToken}` : ''}`)
+          }
           btnColor="blue"
           btnText={t('Download')}
           btnIcon="file-download"

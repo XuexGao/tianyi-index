@@ -186,6 +186,7 @@ const FolderGridLayout = ({
                     href={`${getBaseUrl()}${apiBase}/raw/?path=${getBackendItemPath(c.name)}${
                       hashedToken ? `&odpt=${hashedToken}` : ''
                     }`}
+                    download
                   >
                     <FontAwesomeIcon icon={['far', 'arrow-alt-circle-down']} />
                   </a>

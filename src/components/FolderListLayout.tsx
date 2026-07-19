@@ -185,6 +185,7 @@ const FolderListLayout = ({
                 title={t('Download file')}
                 className="cursor-pointer rounded px-1.5 py-1 hover:bg-gray-300 dark:hover:bg-gray-600"
                 href={`${apiBase}/raw/?path=${getBackendItemPath(c.name)}${hashedToken ? `&odpt=${hashedToken}` : ''}`}
+                download
               >
                 <FontAwesomeIcon icon={['far', 'arrow-alt-circle-down']} />
               </a>

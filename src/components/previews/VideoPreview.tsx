@@ -15,7 +15,7 @@ import { resolveDrive, normalizeDrive } from '../../utils/driveResolver'
 import { getExtension } from '../../utils/getFileIcon'
 import { getStoredToken } from '../../utils/protectedRouteHandler'
 
-import { DownloadButton } from '../DownloadBtnGtoup'
+import { DownloadButton, downloadFile } from '../DownloadBtnGtoup'
 import { DownloadBtnContainer, PreviewContainer } from './Containers'
 import FourOhFour from '../FourOhFour'
 import Loading from '../Loading'
@@ -128,7 +128,7 @@ const VideoPreview: FC<{ file: OdFileObject }> = ({ file }) => {
       <DownloadBtnContainer>
         <div className="flex flex-wrap justify-center gap-2">
           <DownloadButton
-            onClickCallback={() => window.open(videoUrl)}
+            onClickCallback={() => downloadFile(videoUrl)}
             btnColor="blue"
             btnText={t('Download')}
             btnIcon="file-download"
