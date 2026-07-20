@@ -2,6 +2,8 @@
 node_modules/
 .pnp
 .pnp.js
+# pnpm 本地缓存（正常应使用全局 store，此处兜底防止误提交）
+.pnpm-store/
 
 # testing
 coverage/

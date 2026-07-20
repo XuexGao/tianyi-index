@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios'
 import { cloud189Login, LoginResult } from './tianyiAuth'
 import { saveTianyiSession } from './tianyiSessionStore'
+import { getTianyiUserAgent } from './tianyiUserAgent'
 
 /**
  * 天翼云文件操作客户端
@@ -159,8 +160,7 @@ export async function getFiles(
     // 自定义响应解析：保护 19 位 long 类型 ID 不丢精度
     transformResponse: [preserveLongIds],
     headers: {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'User-Agent': getTianyiUserAgent(),
       Referer: 'https://cloud.189.cn/',
       Accept: 'application/json;charset=UTF-8',
     },
@@ -309,8 +309,7 @@ export async function getDownloadLink(
     // 自定义响应解析：保护 19 位 long 类型 ID 不丢精度
     transformResponse: [preserveLongIds],
     headers: {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'User-Agent': getTianyiUserAgent(),
       Referer: 'https://cloud.189.cn/',
       Accept: 'application/json;charset=UTF-8',
     },

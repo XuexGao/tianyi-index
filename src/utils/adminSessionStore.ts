@@ -93,21 +93,32 @@ export async function deleteAdminSession(token: string | undefined | null): Prom
 
 /**
  * 列出所有活跃的 admin session（管理页诊断用）
+ *
+ * 使用 SCAN 替代 KEYS：KEYS 是 O(N) 阻塞命令，在 key 数量大或大 value 时会阻塞 Redis
+ * 影响其他请求；SCAN 是游标式迭代，每次仅占用少量 CPU，可分批返回。
+ * COUNT=100 是单次迭代建议值，实际返回数可能略多或略少。
  */
 export async function listAdminSessions(): Promise<Array<{ token: string; payload: AdminSessionPayload }>> {
   try {
     if (!kv) return []
     const pattern = `${siteConfig.kvPrefix}${SESSION_PREFIX}*`
-    const keys = await kv.keys(pattern)
     const result: Array<{ token: string; payload: AdminSessionPayload }> = []
-    for (const key of keys) {
-      const raw = await kv.get(key)
-      if (!raw) continue
-      const token = key.split(SESSION_PREFIX)[1]
-      // 安全：掩码 token，避免在诊断接口中暴露可用凭据导致 session 劫持
-      const maskedToken = token.length > 12 ? `${token.slice(0, 8)}…${token.slice(-4)}` : '…'
-      result.push({ token: maskedToken, payload: JSON.parse(raw) })
-    }
+
+    let cursor = '0'
+    do {
+      // SCAN 返回 [nextCursor, keys[]]
+      const [nextCursor, keys] = await kv.scan(cursor, 'MATCH', pattern, 'COUNT', 100)
+      cursor = nextCursor
+      for (const key of keys) {
+        const raw = await kv.get(key)
+        if (!raw) continue
+        const token = key.split(SESSION_PREFIX)[1]
+        // 安全：掩码 token，避免在诊断接口中暴露可用凭据导致 session 劫持
+        const maskedToken = token.length > 12 ? `${token.slice(0, 8)}…${token.slice(-4)}` : '…'
+        result.push({ token: maskedToken, payload: JSON.parse(raw) })
+      }
+    } while (cursor !== '0')
+
     return result
   } catch {
     return []

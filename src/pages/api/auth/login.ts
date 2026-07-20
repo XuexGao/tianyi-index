@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { timingSafeEqual } from 'crypto'
 import { createAdminSession } from '../../../utils/adminSessionStore'
 import { ADMIN_COOKIE_NAME, ADMIN_COOKIE_MAX_AGE, ADMIN_COOKIE_PATH, isSameOriginReq } from '../../../utils/adminAuth'
+import { checkRateLimit } from '../../../utils/rateLimit'
 
 /**
  * 管理员登录 API
@@ -13,22 +14,9 @@ import { ADMIN_COOKIE_NAME, ADMIN_COOKIE_MAX_AGE, ADMIN_COOKIE_PATH, isSameOrigi
  * 成功则创建 Redis session 并设置 HTTP-only cookie。
  */
 
-// 简易 IP 限流（单实例内存，serverless 多实例下为近似值，生产可用 Redis 改进）
+// 限流参数：15 分钟窗口内最多 10 次尝试（Redis 计数，跨实例生效）
 const MAX_ATTEMPTS = 10
-const WINDOW_MS = 15 * 60 * 1000 // 15 分钟
-const loginAttempts = new Map<string, { count: number; expires: number }>()
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now()
-  const entry = loginAttempts.get(ip)
-  if (entry && entry.expires > now) {
-    if (entry.count >= MAX_ATTEMPTS) return false
-    entry.count++
-    return true
-  }
-  loginAttempts.set(ip, { count: 1, expires: now + WINDOW_MS })
-  return true
-}
+const WINDOW_SEC = 15 * 60
 
 function getClientIp(req: NextApiRequest): string {
   const forwarded = req.headers['x-forwarded-for']
@@ -48,9 +36,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 
+  // 限流：基于 Redis INCR + EXPIRE，跨实例全局共享计数
   const ip = getClientIp(req)
-  if (!checkRateLimit(ip)) {
-    res.status(429).json({ error: '尝试次数过多，请稍后再试' })
+  const rl = await checkRateLimit(`login:ip:${ip}`, MAX_ATTEMPTS, WINDOW_SEC)
+  if (!rl.allowed) {
+    res.setHeader('Retry-After', String(rl.retryAfter))
+    res.status(429).json({ error: `尝试次数过多，请 ${rl.retryAfter} 秒后重试` })
     return
   }
 

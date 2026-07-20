@@ -1,5 +1,7 @@
 import crypto from 'crypto'
 import axios, { AxiosInstance } from 'axios'
+import { recordLoginFailure, recordLoginSuccess } from './tianyiLoginMonitor'
+import { getTianyiUserAgent } from './tianyiUserAgent'
 
 /**
  * 天翼云登录认证模块
@@ -43,8 +45,7 @@ function createSession(): { client: AxiosInstance; jar: CookieJar } {
     maxRedirects: 0,
     validateStatus: (status) => status < 400,
     headers: {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'User-Agent': getTianyiUserAgent(),
       Referer: 'https://cloud.189.cn/',
     },
   })
@@ -155,8 +156,31 @@ async function followRedirects(client: AxiosInstance, url: string, maxSteps = 5)
 
 /**
  * 天翼云登录
+ *
+ * 包装 cloud189LoginImpl，在登录完成时记录监控指标：
+ * - 成功：recordLoginSuccess（清失败计数）
+ * - 失败（含 need_captcha）：recordLoginFailure（失败计数 + 错误列表）
+ *
+ * 监控写入失败不影响登录主流程（recordXxx 内部已 try/catch）。
  */
 export async function cloud189Login(
+  username: string,
+  password: string,
+  validateCode: string = '',
+): Promise<LoginResult> {
+  const result = await cloud189LoginImpl(username, password, validateCode)
+  if (result.status === 'success') {
+    await recordLoginSuccess()
+  } else {
+    await recordLoginFailure(result.status, result.message)
+  }
+  return result
+}
+
+/**
+ * 天翼云登录实现（不直接调用，使用 cloud189Login 包装版本以接入监控）
+ */
+async function cloud189LoginImpl(
   username: string,
   password: string,
   validateCode: string = '',
@@ -246,8 +270,7 @@ export async function cloud189Login(
               `https://open.e.189.cn/api/logbox/oauth2/picCaptcha.do?token=${vcodeId}${Date.now()}`,
               {
                 headers: {
-                  'User-Agent':
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                  'User-Agent': getTianyiUserAgent(),
                   Referer: 'https://open.e.189.cn/api/logbox/oauth2/unifyAccountLogin.do',
                 },
                 responseType: 'arraybuffer',

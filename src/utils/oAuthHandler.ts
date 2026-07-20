@@ -11,18 +11,52 @@ async function getConfig() {
 
 // Just a disguise to obfuscate required tokens (including but not limited to client secret,
 // access tokens, and refresh tokens), used along with the following two functions.
-// 密钥优先从服务端环境变量读取；未配置时回退到旧值以保持兼容。
-// 注意：该密钥不可进入客户端 bundle，仅在服务端使用 revealObfuscatedToken 解密。
-const AES_SECRET_KEY = process.env.CRYPTO_SECRET || 'onedrive-vercel-index'
+//
+// 安全策略：
+// - revealObfuscatedToken 仅在服务端调用，CRYPTO_SECRET 必须配置，否则启动期首次调用即抛错；
+// - obfuscateToken 仅由已废弃的客户端 sendTokenToServer 流程使用，无法读取服务端环境变量，
+//   保留公开回退密钥仅为兼容旧调用方，新流程（step-3 SSR）已在服务端直接 storeOdAuthTokens。
+//
+// 注意：本模块同时被客户端（step-3.tsx 顶部 import）和服务端引用，因此不能在模块顶层抛错，
+// 否则客户端 bundle 加载会崩。CRYPTO_SECRET 校验延迟到 revealObfuscatedToken 首次调用时执行
+// （仅在服务端发生），相当于"启动报错"语义。
+const CLIENT_FALLBACK_KEY = 'onedrive-vercel-index'
+
+let serverAesKey: string | null = null
+let serverAesKeyResolved = false
+
+/**
+ * 获取服务端 AES 密钥。CRYPTO_SECRET 未配置时抛错，禁止回退到公开密钥。
+ * 缓存解析结果，避免每次解密都重复读取环境变量。
+ */
+function getServerAesKey(): string {
+  if (serverAesKeyResolved) {
+    if (serverAesKey === null) {
+      throw new Error('CRYPTO_SECRET 环境变量未配置，无法解密 OneDrive 凭据。请在 Vercel/服务器环境变量中配置 CRYPTO_SECRET 后重新部署。')
+    }
+    return serverAesKey
+  }
+  serverAesKeyResolved = true
+  const k = process.env.CRYPTO_SECRET
+  if (!k || !k.trim()) {
+    serverAesKey = null
+    throw new Error('CRYPTO_SECRET 环境变量未配置，无法解密 OneDrive 凭据。请在 Vercel/服务器环境变量中配置 CRYPTO_SECRET 后重新部署。')
+  }
+  serverAesKey = k
+  return serverAesKey
+}
+
 export function obfuscateToken(token: string): string {
-  // Encrypt token with AES
-  const encrypted = CryptoJS.AES.encrypt(token, AES_SECRET_KEY)
+  // 客户端无法读取服务端环境变量；该函数仅由已废弃的 sendTokenToServer 流程使用
+  // （新流程 step-3 SSR 已直接在服务端存储 token），保留回退密钥仅为兼容。
+  const key = typeof window !== 'undefined' ? CLIENT_FALLBACK_KEY : (process.env.CRYPTO_SECRET || CLIENT_FALLBACK_KEY)
+  const encrypted = CryptoJS.AES.encrypt(token, key)
   return encrypted.toString()
 }
 export function revealObfuscatedToken(obfuscated: string): string {
-  // Decrypt AES obfuscated token
+  // Decrypt AES obfuscated token（仅服务端调用）
   if (!obfuscated) return ''
-  const decrypted = CryptoJS.AES.decrypt(obfuscated, AES_SECRET_KEY)
+  const decrypted = CryptoJS.AES.decrypt(obfuscated, getServerAesKey())
   return decrypted.toString(CryptoJS.enc.Utf8)
 }
 

@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import type { LoginResult } from '../../utils/tianyiAuth'
 import { cloud189Login } from '../../utils/tianyiAuth'
 import { getRedisStatus } from '../../utils/tianyiSessionStore'
+import { getLoginMonitorStats } from '../../utils/tianyiLoginMonitor'
 import { isAdminReq } from './auth/check'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -33,6 +34,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const lt = loginTest as LoginResult
+
+  // 登录监控统计：最近 1h 失败/成功计数 + 最近 20 条失败记录
+  // 用于及时发现 cloud.189.cn 接口变更或风控触发
+  const loginMonitor = await getLoginMonitorStats()
+
   res.status(200).json({
     status: 'success',
     data: {
@@ -51,6 +57,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         message: 'message' in lt ? lt.message?.substring(0, 100) : '',
         hasCookies: lt.status === 'success' ? Boolean(lt.data?.cookies) : false,
         cookieCount: lt.status === 'success' ? Object.keys(lt.data?.cookies || {}).length : 0,
+      },
+      loginMonitor: {
+        enabled: loginMonitor.enabled,
+        recentFailures: loginMonitor.recentFailures,
+        recentSuccesses: loginMonitor.recentSuccesses,
+        // 失败记录中可能含敏感信息（用户名/错误细节），仅管理员可见
+        recentErrorRecords: loginMonitor.recentErrorRecords,
       },
     },
   })
