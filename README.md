@@ -29,12 +29,21 @@
 | `TIANYI_PASSWORD` | 天翼云密码 |
 | `REDIS_URL` | Upstash Redis 连接字符串，必须使用 `rediss://`（双 s，TLS）格式，例如 `rediss://default:<密码>@<区域>.upstash.io:6379`。注意不是 Upstash 的 REST URL（`https://...`） |
 
+#### 安全配置（必填）
+
+| 变量 | 说明 |
+|------|------|
+| `ADMIN_PASSWORD` | 管理员后台登录密码，用于访问 `/@manage` 管理后台（私密目录管理、清缓存等）。生成建议：`openssl rand -base64 24` |
+| `CRYPTO_SECRET` | OneDrive 凭据加解密密钥，启用 OneDrive 时必须配置。服务端首次解密 `CLIENT_SECRET` / OAuth token 时若未配置会抛错（不再回退公开密钥）。生成建议：`openssl rand -hex 32` |
+| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST API 地址（如 `https://xxx.upstash.io`），用于 middleware 在 Edge Runtime 中真校验 admin session。Vercel 集成 Upstash 时自动注入，无需手动填写。未配置时 middleware 仅做 cookie 存在性检查 |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST API 访问 token，与 `UPSTASH_REDIS_REST_URL` 配套。Vercel 集成 Upstash 时自动注入 |
+
 #### OneDrive（可选，不配置则只使用天翼云）
 
 | 变量 | 说明 |
 |------|------|
 | `CLIENT_ID` | Microsoft OAuth 客户端 ID，在 Azure Portal → App registrations 注册应用获取 |
-| `CLIENT_SECRET` | Microsoft OAuth 客户端密钥，需先加密后填入（见下方说明） |
+| `CLIENT_SECRET` | Microsoft OAuth 客户端密钥，需先用 `CRYPTO_SECRET` 加密后填入（见下方说明） |
 | `USER_PRINCIPAL_NAME` | Microsoft 账户邮箱，用于 OAuth 身份校验 |
 | `BASE_DIRECTORY` | OneDrive 远端根目录，默认 `/`。设为 `/Photos/Blog` 则只挂载该子目录 |
 
@@ -46,6 +55,7 @@
 |------|--------|------|
 | `DEFAULT_FOLDER_ID` | `-11` | 天翼云默认浏览的文件夹 ID，`-11` 为根目录 |
 | `KV_PREFIX` | （空） | Redis 键前缀，多项目共用同一 Redis 时用于隔离 |
+| `TIANYI_UA` | （空） | 天翼云请求 User-Agent。留空则从内置 UA 池（6 条主流浏览器 UA）随机轮换，1 小时缓存一次。排查风控问题时可固定一个 UA |
 | `NEXT_PUBLIC_SITE_TITLE` | `TianYi-Index` | 网站标题，显示在左上角和浏览器标签 |
 | `NEXT_PUBLIC_TIANYI_MOUNT_PATH` | `/` | 天翼云挂载路径。设为 `/Tianyi` 则天翼云文件出现在 `/Tianyi` 下 |
 | `NEXT_PUBLIC_ONEDRIVE_MOUNT_PATH` | `/OneDrive` | OneDrive 挂载路径。天翼云根目录会自动出现 OneDrive 文件夹入口。设为空则禁用 OneDrive |
@@ -64,8 +74,8 @@
 ```bash
 cp .env.example .env
 # 编辑 .env 填入真实凭据
-npm install --legacy-peer-deps
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 ### OneDrive OAuth 授权流程
@@ -73,10 +83,10 @@ npm run dev
 1. 在 [Azure Portal](https://portal.azure.com/) → App registrations 注册一个应用
 2. 配置 Redirect URI 为 `http://localhost`（与 `config/api.config.js` 中 `redirectUri` 一致）
 3. 获取 `CLIENT_ID` 和 `CLIENT_SECRET`
-4. 把 `CLIENT_SECRET` [在线加密](https://onedrive-vercel-index.spencerwoo.com/docs/advanced#modify-configs-in-apiconfigjs)，原始文本填入自己的secret就可以了，最后把产物填入变量
-4. 填入 `USER_PRINCIPAL_NAME`（你的 Microsoft 账户邮箱）
-5. 部署后访问 `/onedrive-index-oauth/step-1`，按页面提示完成三步授权
-6. 授权成功后 refresh token 会自动存入 Redis，OneDrive 即可正常使用
+4. 用 `CRYPTO_SECRET` 作为密钥加密 `CLIENT_SECRET`（可使用项目内的 `obfuscateToken` 函数或在线 AES 加密工具），把加密产物填入 `CLIENT_SECRET` 变量
+5. 填入 `USER_PRINCIPAL_NAME`（你的 Microsoft 账户邮箱）
+6. 部署后访问 `/onedrive-index-oauth/step-1`，按页面提示完成三步授权
+7. 授权成功后 refresh token 会自动存入 Redis，OneDrive 即可正常使用
 
 ### 私密目录使用说明
 

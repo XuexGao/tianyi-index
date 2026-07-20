@@ -14,7 +14,21 @@ import { getProtectedRoutesOd } from '../../../utils/protectedRoutesStore'
 
 const basePath = pathPosix.resolve('/', process.env.BASE_DIRECTORY || '/')
 const clientId = process.env.CLIENT_ID || ''
-const clientSecret = revealObfuscatedToken(process.env.CLIENT_SECRET || '')
+
+/**
+ * 延迟解密 CLIENT_SECRET。
+ *
+ * 安全：revealObfuscatedToken 在 CRYPTO_SECRET 未配置时会抛错（禁止回退公开密钥）。
+ * 若在模块顶层调用，Next.js 构建期 "Collecting page data" 阶段会加载本模块
+ * （因 step-1/2/3 通过 import { getAccessToken } from '../api/od' 引用），
+ * 此时 Vercel 构建环境没有 CRYPTO_SECRET 会导致构建失败。
+ *
+ * 移到函数内部后，仅在运行时真正需要刷新 access token 时才解密，
+ * 构建期模块加载不再触发该路径。
+ */
+function getClientSecret(): string {
+  return revealObfuscatedToken(process.env.CLIENT_SECRET || '')
+}
 
 /**
  * Encode the path of the file relative to the base directory
@@ -54,7 +68,7 @@ export async function getAccessToken(): Promise<string> {
   const body = new URLSearchParams()
   body.append('client_id', clientId)
   body.append('redirect_uri', apiConfig.redirectUri)
-  body.append('client_secret', clientSecret)
+  body.append('client_secret', getClientSecret())
   body.append('refresh_token', refreshToken)
   body.append('grant_type', 'refresh_token')
 
