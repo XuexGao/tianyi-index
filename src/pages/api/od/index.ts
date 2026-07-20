@@ -219,10 +219,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 
-  const accessToken = await getAccessToken()
+  // getAccessToken 内部调用 getClientSecret()，若 CRYPTO_SECRET 未配置会抛错。
+  // 这里捕获后返回 JSON 错误（而非让错误冒泡到 Next.js 默认 _error HTML 页面），
+  // 让前端 SWR 能拿到结构化错误信息正常渲染 FourOhFour，避免 SSR 500。
+  let accessToken: string
+  try {
+    accessToken = await getAccessToken()
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'Failed to get OneDrive access token.' })
+    return
+  }
 
   if (!accessToken) {
-    res.status(403).json({ error: 'No access token.' })
+    res.status(403).json({ error: 'No access token. OneDrive OAuth may not be completed.' })
     return
   }
 

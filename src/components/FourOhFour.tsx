@@ -1,7 +1,35 @@
+import { useState } from 'react'
 import Image from 'next/image'
-import { Trans } from 'next-i18next'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { Trans, useTranslation } from 'next-i18next'
 
 const FourOhFour: React.FC<{ errorMsg: string }> = ({ errorMsg }) => {
+  const { t } = useTranslation()
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    try {
+      // 优先用 Clipboard API（HTTPS 下可用，写入不留痕）
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(errorMsg)
+      } else {
+        // 降级：临时 textarea + execCommand（兼容 HTTP / 旧浏览器）
+        const ta = document.createElement('textarea')
+        ta.value = errorMsg
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+      }
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // 复制失败时静默，用户可手动选中复制
+    }
+  }
+
   return (
     <div className="my-12">
       <div className="mx-auto w-1/3">
@@ -14,8 +42,17 @@ const FourOhFour: React.FC<{ errorMsg: string }> = ({ errorMsg }) => {
             Oops, that's a <span className="underline decoration-red-500 decoration-wavy">four-oh-four</span>.
           </Trans>
         </div>
-        <div className="mb-4 overflow-hidden break-all rounded border border-gray-400/20 bg-gray-50 p-2 font-mono text-xs dark:bg-gray-800">
+        <div className="group relative mb-4 overflow-hidden break-all rounded border border-gray-400/20 bg-gray-50 p-2 pr-10 font-mono text-xs dark:bg-gray-800">
           {errorMsg}
+          <button
+            type="button"
+            onClick={handleCopy}
+            title={t('Copy error message') as string}
+            aria-label={t('Copy error message') as string}
+            className="absolute right-1.5 top-1.5 rounded p-1 text-gray-500 opacity-60 transition hover:bg-gray-200 hover:text-gray-700 hover:opacity-100 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+          >
+            <FontAwesomeIcon icon={copied ? 'check' : ['far', 'copy']} />
+          </button>
         </div>
         <div className="text-sm">
           <Trans>

@@ -23,9 +23,16 @@ export function runCorsMiddleware(req: NextApiRequest, res: NextApiResponse) {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const accessToken = await getAccessToken()
+  // 同 /api/od/index.ts：捕获 CRYPTO_SECRET 未配置等错误，返回 JSON 而非 _error HTML
+  let accessToken: string
+  try {
+    accessToken = await getAccessToken()
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'Failed to get OneDrive access token.' })
+    return
+  }
   if (!accessToken) {
-    res.status(403).json({ error: 'No access token.' })
+    res.status(403).json({ error: 'No access token. OneDrive OAuth may not be completed.' })
     return
   }
 
