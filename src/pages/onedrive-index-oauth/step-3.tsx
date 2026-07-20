@@ -21,7 +21,13 @@ export async function getServerSideProps({ query, locale }) {
   const userPrincipalName = process.env.USER_PRINCIPAL_NAME || ''
 
   // Check if OAuth authentication has been completed
-  const existingAccessToken = await getAccessToken()
+  // 同 step-1/2：CRYPTO_SECRET 未配置时 getAccessToken 抛错，try/catch 让页面正常渲染
+  let existingAccessToken = ''
+  try {
+    existingAccessToken = await getAccessToken()
+  } catch {
+    // 忽略，继续走 token 交换流程（错误会在 requestTokenWithAuthCode 处给出明确提示）
+  }
   if (existingAccessToken) {
     // If OAuth authentication has been completed, redirect to the homepage
     return {

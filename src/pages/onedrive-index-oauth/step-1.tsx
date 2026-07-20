@@ -14,7 +14,14 @@ import { getAccessToken } from '../api/od'
 export async function getServerSideProps({ locale }) {
   const clientId = process.env.CLIENT_ID || ''
   // Get accessToken using getAccessToken function
-  const accessToken = await getAccessToken()
+  // CRYPTO_SECRET 未配置时 getAccessToken 会抛错，这里 try/catch 让页面正常渲染
+  // （让用户能看到配置信息，继续走 OAuth 流程；缺失的 CRYPTO_SECRET 在 step-3 会给出明确错误）
+  let accessToken = ''
+  try {
+    accessToken = await getAccessToken()
+  } catch {
+    // CRYPTO_SECRET 未配置或 Redis 不可用，视为未授权，继续渲染 OAuth 引导页
+  }
   // If the accessToken exists, redirect to the home page
   if (accessToken) {
     return {

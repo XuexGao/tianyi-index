@@ -15,7 +15,13 @@ import { getAccessToken } from '../api/od'
 
 export async function getServerSideProps({ locale }) {
   // Get accessToken using getAccessToken function
-  const accessToken = await getAccessToken()
+  // 同 step-1：CRYPTO_SECRET 未配置时 getAccessToken 抛错，try/catch 让页面正常渲染
+  let accessToken = ''
+  try {
+    accessToken = await getAccessToken()
+  } catch {
+    // 忽略，继续渲染 OAuth 授权页
+  }
   // If the accessToken exists, redirect to the home page
   if (accessToken) {
     return {
