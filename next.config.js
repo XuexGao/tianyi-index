@@ -55,7 +55,7 @@ module.exports = {
         destination: '/api/dav/:path*',
       },
       {
-        source: '/api/:path((?!ty/|od/|config).*)',
+        source: '/api/:path((?!ty/|od/|dav/|config).*)',
         destination: '/api/ty/:path*',
       },
       // 管理员路由：/@login 和 /@manage 映射到实际页面文件
