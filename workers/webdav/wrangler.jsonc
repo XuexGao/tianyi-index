@@ -4,6 +4,12 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-07-21",
   "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "pan.xiegao.top/dav/*",
+      "zone_name": "xiegao.top"
+    }
+  ],
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1
