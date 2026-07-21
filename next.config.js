@@ -44,6 +44,11 @@ module.exports = {
   // 让外部调用方（如博客 Fuwari 的 vercel rewrite）不用改代码即可继续工作。
   async rewrites() {
     return [
+      // WebDAV 挂载：/dav/* -> /api/dav/*
+      {
+        source: '/dav/:path*',
+        destination: '/api/dav/:path*',
+      },
       {
         source: '/api/:path((?!ty/|od/|config).*)',
         destination: '/api/ty/:path*',
