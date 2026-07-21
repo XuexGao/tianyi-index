@@ -77,5 +77,5 @@ export const config = {
    * - /_next/* （Next.js 内部资源）
    * - 静态资源
    */
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|android-chrome|images|icons).*)'],
+  matcher: ['/((?!api|dav/|_next/static|_next/image|favicon.ico|android-chrome|images|icons).*)'],
 }

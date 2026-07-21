@@ -45,6 +45,11 @@ module.exports = {
   async rewrites() {
     return [
       // WebDAV 挂载：/dav/* -> /api/dav/*
+      // 先匹配带尾随斜杠的（适配 trailingSlash: true），再回退到无斜杠版本
+      {
+        source: '/dav/:path*/',
+        destination: '/api/dav/:path*/',
+      },
       {
         source: '/dav/:path*',
         destination: '/api/dav/:path*',
