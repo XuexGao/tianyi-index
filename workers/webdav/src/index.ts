@@ -88,19 +88,27 @@ async function isValidAdminPassword(password: string): Promise<boolean> {
   }
 }
 
-function getOriginUrl(url: URL): URL {
+function toDavPath(pathname: string): string | null {
+  if (pathname === '/') return '/dav/'
+  if (pathname !== '/dav' && !pathname.startsWith('/dav/')) {
+    return `/dav${pathname}`
+  }
+  return pathname === '/dav' ? '/dav/' : pathname
+}
+
+function getOriginUrl(url: URL, davPath: string): URL {
   const davPrefix = '/dav'
-  const suffix = url.pathname === davPrefix ? '/' : url.pathname.slice(davPrefix.length)
+  const suffix = davPath === davPrefix ? '/' : davPath.slice(davPrefix.length)
   return new URL(`/api/dav${suffix}${url.search}`, ORIGIN)
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
-    if (url.pathname !== '/dav' && !url.pathname.startsWith('/dav/')) {
+    const workerPath = toDavPath(url.pathname)
+    if (!workerPath) {
       return new Response('Not found', { status: 404 })
     }
-    const workerPath = url.pathname === '/dav' ? '/dav/' : url.pathname
 
     if (request.method !== 'OPTIONS') {
       const credentials = getBasicCredentials(request)
@@ -120,7 +128,7 @@ export default {
     headers.set('X-WebDAV-Worker-Path', workerPath)
     headers.set('X-WebDAV-Worker-Signature', await sign(signaturePayload, env.WEBDAV_WORKER_SECRET))
 
-    const upstream = await fetch(getOriginUrl(url), {
+    const upstream = await fetch(getOriginUrl(url, workerPath), {
       method: request.method,
       headers,
       body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request.body,

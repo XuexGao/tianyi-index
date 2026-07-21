@@ -6,7 +6,7 @@
   "workers_dev": true,
   "routes": [
     {
-      "pattern": "pan.xiegao.top/dav/*",
+      "pattern": "dav.xiegao.top/*",
       "zone_name": "xiegao.top"
     }
   ],
