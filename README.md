@@ -12,6 +12,7 @@
 - 🌗 毛玻璃主题 + 随机壁纸
 - 🔐 天翼云环境变量自动登录，OneDrive OAuth 2.0 refresh token
 - 🔒 私密目录密码保护（两个网盘各自独立配置，在对应目录放 `.password` 文件）
+- 🌐 WebDAV 只读挂载：通过 Cloudflare Worker 独立子域名访问双云盘绝对根目录
 
 ## 部署到 Vercel
 
@@ -37,6 +38,7 @@
 | `CRYPTO_SECRET` | OneDrive 凭据加解密密钥，启用 OneDrive 时必须配置。服务端首次解密 `CLIENT_SECRET` / OAuth token 时若未配置会抛错（不再回退公开密钥）。生成建议：`openssl rand -hex 32` |
 | `UPSTASH_REDIS_REST_URL` | Upstash Redis REST API 地址（如 `https://xxx.upstash.io`），用于 middleware 在 Edge Runtime 中真校验 admin session。Vercel 集成 Upstash 时自动注入，无需手动填写。未配置时 middleware 仅做 cookie 存在性检查 |
 | `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST API 访问 token，与 `UPSTASH_REDIS_REST_URL` 配套。Vercel 集成 Upstash 时自动注入 |
+| `WEBDAV_WORKER_SECRET` | WebDAV Cloudflare Worker 回源签名密钥，仅 Worker 和 Vercel API 之间使用。生成建议：`openssl rand -base64 48` |
 
 #### OneDrive（可选，不配置则只使用天翼云）
 
@@ -77,6 +79,46 @@ cp .env.example .env
 pnpm install
 pnpm run dev
 ```
+
+### WebDAV 使用说明
+
+WebDAV 已通过独立 Cloudflare Worker 子域名提供，只读访问双云盘的**绝对根目录**。
+
+WebDAV 客户端配置：
+
+| 项目 | 值 |
+|------|----|
+| 地址 | `https://dav.xiegao.top/` |
+| 用户名 | `admin` |
+| 密码 | 网站管理员登录密码（即 `/@login` 使用的 `ADMIN_PASSWORD`） |
+
+挂载后根目录会显示两个文件夹：
+
+| 文件夹 | 对应远端目录 |
+|--------|--------------|
+| `天翼云盘` | 天翼云盘绝对根目录（固定 `-11`，不受 `DEFAULT_FOLDER_ID` 影响） |
+| `OneDrive` | OneDrive 绝对根目录（不受 `BASE_DIRECTORY` 影响） |
+
+实现方式：
+
+- `workers/webdav` 中的 Cloudflare Worker 负责接收 WebDAV 客户端请求和 Basic Auth。
+- Worker 调用现有 `/api/auth/login/` 校验管理员密码，避免在 Worker 中保存管理员密码副本。
+- Worker 使用 `WEBDAV_WORKER_SECRET` 对回源请求做短时 HMAC 签名，Vercel 的 `/api/dav/[[...path]]` 只信任该签名或直接 Basic Auth。
+- Worker 路由绑定为 `dav.xiegao.top/*`，因此主站 `pan.xiegao.top` 可以保持 DNS-only 灰云直连 Vercel，不影响正常网页访问。
+
+部署/更新 Worker：
+
+```bash
+npx wrangler deploy --config workers/webdav/wrangler.jsonc
+```
+
+Cloudflare DNS 需要有：
+
+| 类型 | 名称 | 目标 | 代理状态 |
+|------|------|------|----------|
+| `CNAME` | `dav` | `tianyi-webdav.xiegao.workers.dev` | Proxied（橙云） |
+
+当前 WebDAV 仅支持目录浏览和文件下载（`PROPFIND` / `GET` / `HEAD` / `OPTIONS`），不支持上传、删除、移动等写操作。
 
 ### OneDrive OAuth 授权流程
 
