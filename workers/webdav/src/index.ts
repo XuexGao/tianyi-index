@@ -1,5 +1,4 @@
 interface Env {
-  ADMIN_PASSWORD: string
   WEBDAV_WORKER_SECRET: string
 }
 
@@ -14,6 +13,8 @@ const FORWARDED_HEADERS = [
   'timeout',
   'user-agent',
 ]
+const PASSWORD_CACHE_TTL_MS = 5 * 60_000
+const passwordCache = new Map<string, number>()
 
 function unauthorized(): Response {
   return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -23,15 +24,6 @@ function unauthorized(): Response {
       'WWW-Authenticate': 'Basic realm="WebDAV"',
     },
   })
-}
-
-function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
-  let diff = 0
-  for (let i = 0; i < a.length; i++) {
-    diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  }
-  return diff === 0
 }
 
 function getBasicCredentials(request: Request): { username: string; password: string } | null {
@@ -66,6 +58,36 @@ async function sign(value: string, secret: string): Promise<string> {
   return btoa(binary)
 }
 
+async function passwordCacheKey(password: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password))
+  const bytes = new Uint8Array(digest)
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary)
+}
+
+async function isValidAdminPassword(password: string): Promise<boolean> {
+  const cacheKey = await passwordCacheKey(password)
+  if ((passwordCache.get(cacheKey) || 0) > Date.now()) {
+    return true
+  }
+
+  try {
+    const response = await fetch(new URL('/api/auth/login/', ORIGIN), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+      redirect: 'manual',
+    })
+    if (response.status !== 200) return false
+
+    passwordCache.set(cacheKey, Date.now() + PASSWORD_CACHE_TTL_MS)
+    return true
+  } catch {
+    return false
+  }
+}
+
 function getOriginUrl(url: URL): URL {
   const davPrefix = '/dav'
   const suffix = url.pathname === davPrefix ? '/' : url.pathname.slice(davPrefix.length)
@@ -82,7 +104,7 @@ export default {
 
     if (request.method !== 'OPTIONS') {
       const credentials = getBasicCredentials(request)
-      if (!credentials || credentials.username !== 'admin' || !constantTimeEqual(credentials.password, env.ADMIN_PASSWORD)) {
+      if (!credentials || credentials.username !== 'admin' || !(await isValidAdminPassword(credentials.password))) {
         return unauthorized()
       }
     }
