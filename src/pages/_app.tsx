@@ -4,6 +4,7 @@ import '../styles/globals.css'
 import '../styles/markdown-github.css'
 import '../styles/glassmorphism.css'
 import { Analytics } from '@vercel/analytics/react'
+import { useRouter } from 'next/router'
 
 const { library, config } = require('@fortawesome/fontawesome-svg-core')
 config.autoAddCss = false
@@ -142,13 +143,14 @@ library.add(
 )
 
 function MyApp({ Component, pageProps }: AppProps) {
+  const router = useRouter()
   // 管理员登录后不加载统计代码（Vercel Analytics）
   const isAdmin = useIsAdmin()
+  const isAdminManagePage = router.asPath.startsWith('/@manage') || router.pathname === '/_admin-manage'
 
   return (
     <>
-      {/* 随机壁纸：通过同源代理加载，同时拿到亮度数据 */}
-      <BackgroundImage />
+      {!isAdminManagePage && <BackgroundImage />}
 
       <NextNProgress height={1} color="rgb(156, 163, 175, 0.9)" options={{ showSpinner: false }} />
       {!isAdmin && <Analytics />}
