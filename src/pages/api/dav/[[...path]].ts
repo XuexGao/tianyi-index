@@ -187,7 +187,7 @@ function isWorkerRequest(req: NextApiRequest, pathSegments: string[]): boolean {
     return false
   }
 
-  const decodedSegments = pathSegments.map((segment) => {
+  const decodedSegments = pathSegments.filter(Boolean).map((segment) => {
     try {
       return decodeURIComponent(segment)
     } catch {
@@ -260,7 +260,8 @@ async function getTySession(): Promise<{ cookies: Record<string, string> } | { e
 
 async function getTyDirListing(tyPath: string, cookies: Record<string, string>): Promise<{ resources: DavResource[] } | { error: string }> {
   const segments = tyPath.split('/').filter(Boolean)
-  let currentFolderId = process.env.DEFAULT_FOLDER_ID || '-11'
+  // WebDAV 始终从天翼云的绝对根目录开始，不受网站展示挂载点影响。
+  let currentFolderId = '-11'
   let currentCookies = cookies
 
   for (let i = 0; i < segments.length; i++) {
@@ -343,7 +344,8 @@ async function getTyDirListing(tyPath: string, cookies: Record<string, string>):
 }
 
 async function getOdDirListing(odPath: string, accessToken: string): Promise<{ resources: DavResource[] } | { error: string }> {
-  const cleanPath = pathPosix.resolve('/', odPath).replace(/\/$/, '')
+  const resolvedPath = pathPosix.resolve('/', odPath)
+  const cleanPath = resolvedPath === '/' ? '/' : resolvedPath.replace(/\/$/, '')
   const isRoot = cleanPath === '/'
   const encodePath = (p: string): string => {
     if (p === '/' || p === '') return ''
@@ -563,7 +565,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, davPath: Par
         res.status(502).json({ error: session.error })
         return
       }
-      let currentFolderId = process.env.DEFAULT_FOLDER_ID || '-11'
+      let currentFolderId = '-11'
       let currentCookies = session.cookies
       for (let i = 0; i < segments.length - 1; i++) {
         const seg = segments[i]
