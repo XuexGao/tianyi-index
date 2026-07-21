@@ -1,5 +1,6 @@
 interface Env {
   ADMIN_PASSWORD: string
+  WEBDAV_WORKER_SECRET: string
 }
 
 const ORIGIN = 'https://pan.xiegao.top'
@@ -95,7 +96,7 @@ export default {
     }
     headers.set('X-WebDAV-Worker-Time', timestamp)
     headers.set('X-WebDAV-Worker-Path', workerPath)
-    headers.set('X-WebDAV-Worker-Signature', await sign(signaturePayload, env.ADMIN_PASSWORD))
+    headers.set('X-WebDAV-Worker-Signature', await sign(signaturePayload, env.WEBDAV_WORKER_SECRET))
 
     const upstream = await fetch(getOriginUrl(url), {
       method: request.method,

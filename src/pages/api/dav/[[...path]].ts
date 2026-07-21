@@ -173,19 +173,17 @@ function parseDavPath(segments: string[]): ParsedDavPath | null {
 }
 
 function isWorkerRequest(req: NextApiRequest, pathSegments: string[]): boolean {
-  const adminPassword = process.env.ADMIN_PASSWORD || ''
+  const workerSecret = process.env.WEBDAV_WORKER_SECRET || ''
   const timestamp = req.headers['x-webdav-worker-time']
   const workerPath = req.headers['x-webdav-worker-path']
   const signature = req.headers['x-webdav-worker-signature']
 
-  if (!adminPassword || typeof timestamp !== 'string' || typeof workerPath !== 'string' || typeof signature !== 'string') {
-    console.warn('[dav] worker auth rejected: missing required fields')
+  if (!workerSecret || typeof timestamp !== 'string' || typeof workerPath !== 'string' || typeof signature !== 'string') {
     return false
   }
 
   const timestampMs = Number(timestamp)
   if (!Number.isSafeInteger(timestampMs) || Math.abs(Date.now() - timestampMs) > 60_000) {
-    console.warn('[dav] worker auth rejected: timestamp outside validity window')
     return false
   }
 
@@ -193,18 +191,13 @@ function isWorkerRequest(req: NextApiRequest, pathSegments: string[]): boolean {
     ? '/dav/'
     : `/dav/${pathSegments.map(segment => encodeURIComponent(segment)).join('/')}`
   if (workerPath !== expectedPath) {
-    console.warn('[dav] worker auth rejected: path mismatch', { workerPath, expectedPath })
     return false
   }
 
-  const expectedSignature = createHmac('sha256', adminPassword)
+  const expectedSignature = createHmac('sha256', workerSecret)
     .update(`${timestamp}\n${req.method}\n${workerPath}`)
     .digest('base64')
-  const signatureValid = constantTimeEqual(signature, expectedSignature)
-  if (!signatureValid) {
-    console.warn('[dav] worker auth rejected: signature mismatch')
-  }
-  return signatureValid
+  return constantTimeEqual(signature, expectedSignature)
 }
 
 async function authenticate(req: NextApiRequest, pathSegments: string[]): Promise<boolean> {
