@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { timingSafeEqual } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 import axios from 'axios'
 import { posix as pathPosix } from 'path'
 
@@ -172,7 +172,37 @@ function parseDavPath(segments: string[]): ParsedDavPath | null {
   return null
 }
 
-async function authenticate(req: NextApiRequest): Promise<boolean> {
+function isWorkerRequest(req: NextApiRequest, pathSegments: string[]): boolean {
+  const adminPassword = process.env.ADMIN_PASSWORD || ''
+  const timestamp = req.headers['x-webdav-worker-time']
+  const workerPath = req.headers['x-webdav-worker-path']
+  const signature = req.headers['x-webdav-worker-signature']
+
+  if (!adminPassword || typeof timestamp !== 'string' || typeof workerPath !== 'string' || typeof signature !== 'string') {
+    return false
+  }
+
+  const timestampMs = Number(timestamp)
+  if (!Number.isSafeInteger(timestampMs) || Math.abs(Date.now() - timestampMs) > 60_000) {
+    return false
+  }
+
+  const expectedPath = pathSegments.length === 0
+    ? '/dav/'
+    : `/dav/${pathSegments.map(segment => encodeURIComponent(segment)).join('/')}`
+  if (workerPath !== expectedPath) {
+    return false
+  }
+
+  const expectedSignature = createHmac('sha256', adminPassword)
+    .update(`${timestamp}\n${req.method}\n${workerPath}`)
+    .digest('base64')
+  return constantTimeEqual(signature, expectedSignature)
+}
+
+async function authenticate(req: NextApiRequest, pathSegments: string[]): Promise<boolean> {
+  if (isWorkerRequest(req, pathSegments)) return true
+
   const authHeader = req.headers.authorization
   if (!authHeader || !authHeader.startsWith('Basic ')) return false
   const encoded = authHeader.slice(6).trim()
@@ -596,14 +626,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 
-  const authOk = await authenticate(req)
+  const pathSegments: string[] = Array.isArray(req.query.path) ? req.query.path : (req.query.path ? [req.query.path as string] : [])
+  const authOk = await authenticate(req, pathSegments)
   if (!authOk) {
     res.setHeader('WWW-Authenticate', 'Basic realm="WebDAV"')
     res.status(401).json({ error: 'Unauthorized' })
     return
   }
 
-  const pathSegments: string[] = Array.isArray(req.query.path) ? req.query.path : (req.query.path ? [req.query.path as string] : [])
   const davPath = parseDavPath(pathSegments)
   if (!davPath) {
     res.status(404).json({ error: 'Not found' })
