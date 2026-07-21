@@ -187,9 +187,19 @@ function isWorkerRequest(req: NextApiRequest, pathSegments: string[]): boolean {
     return false
   }
 
-  const expectedPath = pathSegments.length === 0
+  const decodedSegments = pathSegments.map((segment) => {
+    try {
+      return decodeURIComponent(segment)
+    } catch {
+      return segment
+    }
+  })
+  let expectedPath = decodedSegments.length === 0
     ? '/dav/'
-    : `/dav/${pathSegments.map(segment => encodeURIComponent(segment)).join('/')}`
+    : `/dav/${decodedSegments.map(segment => encodeURIComponent(segment)).join('/')}`
+  if (decodedSegments.length > 0 && workerPath.endsWith('/')) {
+    expectedPath += '/'
+  }
   if (workerPath !== expectedPath) {
     return false
   }
