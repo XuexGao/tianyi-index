@@ -102,7 +102,6 @@ export default {
       headers,
       body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request.body,
       redirect: 'manual',
-      cf: { cacheTtl: 0, cacheEverything: false },
     })
 
     const responseHeaders = new Headers(upstream.headers)
