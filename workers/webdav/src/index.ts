@@ -113,4 +113,4 @@ export default {
       headers: responseHeaders,
     })
   },
-} satisfies ExportedHandler<Env>
+}
