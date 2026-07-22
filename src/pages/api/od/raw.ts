@@ -2,25 +2,11 @@ import { posix as pathPosix } from 'path'
 
 import type { NextApiRequest, NextApiResponse } from 'next'
 import axios, { AxiosResponseHeaders } from 'axios'
-import Cors from 'cors'
 
 import { driveApi, cacheControlHeader } from '../../../../config/api.config'
 import { encodePath, getAccessToken, checkAuthRoute } from '.'
 import { isAdminReq } from '../auth/check'
-
-// CORS middleware for raw links: https://nextjs.org/docs/api-routes/api-middlewares
-export function runCorsMiddleware(req: NextApiRequest, res: NextApiResponse) {
-  const cors = Cors({ methods: ['GET', 'HEAD'] })
-  return new Promise((resolve, reject) => {
-    cors(req, res, result => {
-      if (result instanceof Error) {
-        return reject(result)
-      }
-
-      return resolve(result)
-    })
-  })
-}
+import { isSignedToken, parseProtectedToken } from '../../../../utils/protectedTokenSigner'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // 同 /api/od/index.ts：捕获 CRYPTO_SECRET 未配置等错误，返回 JSON 而非 _error HTML
@@ -54,16 +40,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const odTokenHeader = (req.headers['od-protected-token'] as string) ?? odpt
 
-  const { code, message } = await checkAuthRoute(cleanPath, accessToken, odTokenHeader)
-  if (code !== 200) {
-    res.status(code).json({ error: message })
-    return
-  }
-  if (message !== '') {
-    res.setHeader('Cache-Control', 'no-cache')
+  if (isSignedToken(odTokenHeader)) {
+    const parsed = parseProtectedToken(odTokenHeader)
+    if (!parsed.valid) {
+      res.status(401).json({ error: 'Invalid or expired token' })
+      return
+    }
+    if (cleanPath !== parsed.path && !cleanPath.startsWith(parsed.path.replace(/\/?$/, '/') + '/')) {
+      res.status(403).json({ error: 'Token path mismatch' })
+      return
+    }
+  } else {
+    const { code, message } = await checkAuthRoute(cleanPath, accessToken, odTokenHeader)
+    if (code !== 200) {
+      res.status(code).json({ error: message })
+      return
+    }
+    if (message !== '') {
+      res.setHeader('Cache-Control', 'no-cache')
+    }
   }
 
-  await runCorsMiddleware(req, res)
   try {
     // admin 请求从 OneDrive 绝对根目录开始，忽略 BASE_DIRECTORY
     const requestUrl = `${driveApi}/root${encodePath(cleanPath, isAdmin ? '/' : undefined)}`

@@ -7,6 +7,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 
 import { checkAuthRoute, encodePath, getAccessToken } from '.'
 import apiConfig from '../../../../config/api.config'
+import { isSignedToken, parseProtectedToken } from '../../../../utils/protectedTokenSigner'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const accessToken = await getAccessToken()
@@ -33,13 +34,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const cleanPath = pathPosix.resolve('/', pathPosix.normalize(path))
 
-  const { code, message } = await checkAuthRoute(cleanPath, accessToken, odpt as string)
-  if (code !== 200) {
-    res.status(code).json({ error: message })
-    return
-  }
-  if (message !== '') {
-    res.setHeader('Cache-Control', 'no-cache')
+  if (isSignedToken(odpt as string)) {
+    const parsed = parseProtectedToken(odpt as string)
+    if (!parsed.valid) {
+      res.status(401).json({ error: 'Invalid or expired token' })
+      return
+    }
+    if (cleanPath !== parsed.path && !cleanPath.startsWith(parsed.path.replace(/\/?$/, '/') + '/')) {
+      res.status(403).json({ error: 'Token path mismatch' })
+      return
+    }
+  } else {
+    const { code, message } = await checkAuthRoute(cleanPath, accessToken, odpt as string)
+    if (code !== 200) {
+      res.status(code).json({ error: message })
+      return
+    }
+    if (message !== '') {
+      res.setHeader('Cache-Control', 'no-cache')
+    }
   }
 
   const requestPath = encodePath(cleanPath)

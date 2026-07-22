@@ -2,7 +2,7 @@ interface Env {
   WEBDAV_WORKER_SECRET: string
 }
 
-const ORIGIN = 'https://pan.xiegao.top'
+const ORIGIN = 'https://pan.example.com'
 const FORWARDED_HEADERS = [
   'accept',
   'content-type',

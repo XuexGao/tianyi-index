@@ -9,7 +9,6 @@ import { revealObfuscatedToken } from '../../../utils/oAuthHandler'
 import { compareHashedToken } from '../../../utils/protectedRouteHandler'
 import { getOdAuthTokens, storeOdAuthTokens } from '../../../utils/odAuthTokenStore'
 import { isAdminReq } from '../auth/check'
-import { runCorsMiddleware } from './raw'
 import { getProtectedRoutesOd } from '../../../utils/protectedRoutesStore'
 
 const basePath = pathPosix.resolve('/', process.env.BASE_DIRECTORY || '/')
@@ -249,9 +248,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const requestUrl = `${apiConfig.driveApi}/root${requestPath}`
   const isRoot = requestPath === ''
 
-  // Go for file raw download link, add CORS headers, and redirect to @microsoft.graph.downloadUrl
+  // Go for file raw download link and redirect to @microsoft.graph.downloadUrl
   if (raw) {
-    await runCorsMiddleware(req, res)
     res.setHeader('Cache-Control', 'no-cache')
 
     const { data } = await axios.get(requestUrl, {

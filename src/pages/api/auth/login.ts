@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { timingSafeEqual } from 'crypto'
+import { createHash } from 'crypto'
 import { createAdminSession } from '../../../utils/adminSessionStore'
 import { ADMIN_COOKIE_NAME, ADMIN_COOKIE_MAX_AGE, ADMIN_COOKIE_PATH, isSameOriginReq } from '../../../utils/adminAuth'
 import { checkRateLimit } from '../../../utils/rateLimit'
@@ -78,17 +79,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   res.status(200).json({ success: true })
 }
 
-/**
- * 恒定时间字符串比较，防止时序攻击。
- * 即使长度不同也比较相同长度，避免通过响应时间推断密码长度。
- */
 function safeCompare(a: string, b: string): boolean {
-  const aBuf = Buffer.from(a)
-  const bBuf = Buffer.from(b)
-  if (aBuf.length !== bBuf.length) {
-    // 消耗相同时间：将 bBuf 与自身比较
-    timingSafeEqual(bBuf, bBuf)
-    return false
-  }
-  return timingSafeEqual(aBuf, bBuf)
+  const aHash = createHash('sha256').update(a).digest()
+  const bHash = createHash('sha256').update(b).digest()
+  return timingSafeEqual(aHash, bHash)
 }

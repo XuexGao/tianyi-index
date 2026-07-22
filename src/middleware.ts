@@ -19,8 +19,8 @@ import { verifyAdminSessionEdge, isEdgeSessionCheckerConfigured } from './utils/
  * 性能考量：每次页面请求都打 Upstash 会增加 ~50-100ms 延迟，因此只在管理路由上做真校验，
  * 其他路由保留 cookie 存在性检查（伪造 cookie 最多看到管理 UI 框架，无法实际操作）。
  *
- * 降级：UPSTASH_REDIS_REST_URL/TOKEN 未配置时，管理路由也回退到 cookie 存在性检查
- * （兼容未启用 Upstash REST 的部署；强烈建议生产环境配置）。
+ * 安全：UPSTASH_REDIS_REST_URL/TOKEN 未配置时管理路由直接拒绝，不降级到 cookie 存在性检查。
+ * 必须配置 Upstash REST 才能访问管理后台。
  */
 
 export async function middleware(req: NextRequest) {
@@ -32,11 +32,10 @@ export async function middleware(req: NextRequest) {
   const isManageRoute = pathname.startsWith('/@manage') || pathname.startsWith('/_admin-manage')
   const isLoginRoute = pathname.startsWith('/@login') || pathname.startsWith('/_admin-login')
 
-  // 管理相关路由：启用 Edge 真校验（若 Upstash REST 已配置）
+  // 管理相关路由：必须通过 Upstash REST 真校验，不降级
   if (isManageRoute || isLoginRoute) {
-    let isValidSession = cookiePresent
+    let isValidSession = false
     if (cookiePresent && isEdgeSessionCheckerConfigured()) {
-      // 调用 Upstash Redis REST API 真校验 session 是否在 Redis 中存在
       isValidSession = await verifyAdminSessionEdge(token)
     }
 

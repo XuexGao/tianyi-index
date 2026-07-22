@@ -88,7 +88,7 @@ WebDAV 客户端配置：
 
 | 项目 | 值 |
 |------|----|
-| 地址 | `https://dav.xiegao.top/` |
+| 地址 | `https://dav.example.com/` |
 | 用户名 | `admin` |
 | 密码 | 网站管理员登录密码（即 `/@login` 使用的 `ADMIN_PASSWORD`） |
 
@@ -104,7 +104,7 @@ WebDAV 客户端配置：
 - `workers/webdav` 中的 Cloudflare Worker 负责接收 WebDAV 客户端请求和 Basic Auth。
 - Worker 调用现有 `/api/auth/login/` 校验管理员密码，避免在 Worker 中保存管理员密码副本。
 - Worker 使用 `WEBDAV_WORKER_SECRET` 对回源请求做短时 HMAC 签名，Vercel 的 `/api/dav/[[...path]]` 只信任该签名或直接 Basic Auth。
-- Worker 路由绑定为 `dav.xiegao.top/*`，因此主站 `pan.xiegao.top` 可以保持 DNS-only 灰云直连 Vercel，不影响正常网页访问。
+- Worker 路由绑定为 `dav.example.com/*`，因此主站 `pan.example.com` 可以保持 DNS-only 灰云直连 Vercel，不影响正常网页访问。
 
 部署/更新 Worker：
 
@@ -116,7 +116,7 @@ Cloudflare DNS 需要有：
 
 | 类型 | 名称 | 目标 | 代理状态 |
 |------|------|------|----------|
-| `CNAME` | `dav` | `tianyi-webdav.xiegao.workers.dev` | Proxied（橙云） |
+| `CNAME` | `dav` | `tianyi-webdav.example.workers.dev` | Proxied（橙云） |
 
 当前 WebDAV 仅支持目录浏览和文件下载（`PROPFIND` / `GET` / `HEAD` / `OPTIONS`），不支持上传、删除、移动等写操作。
 

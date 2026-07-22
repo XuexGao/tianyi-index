@@ -6,6 +6,7 @@ import { cloud189Login } from '../../../utils/tianyiAuth'
 import { getFiles, getDownloadLink } from '../../../utils/tianyiClient'
 import { getTianyiSession, saveTianyiSession } from '../../../utils/tianyiSessionStore'
 import { checkProtectedRoute } from '../../../utils/protectedRouteChecker'
+import { isSignedToken, parseProtectedToken } from '../../../utils/protectedTokenSigner'
 import { isAdminReq } from '../auth/check'
 
 const DEFAULT_USER_ID = 'default_user'
@@ -22,7 +23,7 @@ function safeDecodeURIComponent(s: string): string {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { path = '/', odpt = '' } = req.query
+  const { path = '/' } = req.query
 
   // 通过 cookie 判断 admin 状态（raw 下载是浏览器导航，自动带 cookie）
   // admin 时从天翼云绝对根目录 -11 开始，忽略 DEFAULT_FOLDER_ID
@@ -72,12 +73,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // === 受保护路由鉴权 ===
     // 防止绕过目录密码保护直接下载文件
-    // raw 下载是浏览器导航/重定向，无法设置自定义 header，所以前端通过 odpt 查询参数传 token
     const odptToken = (req.query.odpt as string) || ''
-    const authPassed = await checkProtectedRoute(cleanPath, odptToken, cookies, username, password)
-    if (!authPassed) {
-      res.status(401).json({ error: 'Password required.' })
-      return
+    if (isSignedToken(odptToken)) {
+      const parsed = parseProtectedToken(odptToken)
+      if (!parsed.valid) {
+        res.status(401).json({ error: 'Invalid or expired token' })
+        return
+      }
+      if (cleanPath !== parsed.path && !cleanPath.startsWith(parsed.path.replace(/\/?$/, '/') + '/')) {
+        res.status(403).json({ error: 'Token path mismatch' })
+        return
+      }
+    } else {
+      const authPassed = await checkProtectedRoute(cleanPath, odptToken, cookies, username, password)
+      if (!authPassed) {
+        res.status(401).json({ error: 'Password required.' })
+        return
+      }
     }
 
     // 逐层查找文件

@@ -6,8 +6,8 @@
   "workers_dev": true,
   "routes": [
     {
-      "pattern": "dav.xiegao.top/*",
-      "zone_name": "xiegao.top"
+      "pattern": "dav.example.com/*",
+      "zone_name": "example.com"
     }
   ],
   "observability": {

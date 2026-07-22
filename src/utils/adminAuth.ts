@@ -5,14 +5,9 @@
 // cookie 名称
 export const ADMIN_COOKIE_NAME = 'admin_session'
 
-/**
- * CSRF 防护：校验请求的 Origin 是否同源。
- * SameSite=Lax cookie 已提供基本保护，此处为额外防线。
- * Origin 缺失时不阻止（部分浏览器不发 Origin），依赖 SameSite。
- */
 export function isSameOriginReq(req: { headers: { origin?: string; host?: string } }): boolean {
   const origin = req.headers.origin
-  if (!origin) return true
+  if (!origin) return false
   const host = req.headers.host
   if (!host) return false
   return origin === `https://${host}` || origin === `http://${host}`

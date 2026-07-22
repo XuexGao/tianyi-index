@@ -1,4 +1,4 @@
-import { Dispatch, Fragment, SetStateAction, useRef, useState } from 'react'
+import { Dispatch, Fragment, SetStateAction, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'next-i18next'
 import { Dialog, Transition } from '@headlessui/react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -7,6 +7,26 @@ import { useClipboard } from 'use-clipboard-copy'
 import { getBaseUrl } from '../utils/getBaseUrl'
 import { getStoredToken, Drive } from '../utils/protectedRouteHandler'
 import { getReadablePath } from '../utils/getReadablePath'
+
+async function getSignedUrl(apiBase: string, path: string, drive: Drive): Promise<string> {
+  const baseUrl = getBaseUrl()
+  const hashedToken = getStoredToken(path, drive)
+  if (!hashedToken) return `${baseUrl}${apiBase}/raw/?path=${path}`
+
+  try {
+    const res = await fetch('/api/auth/sign-protected-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, hash: hashedToken, drive }),
+    })
+    if (res.ok) {
+      const { token } = await res.json()
+      return `${baseUrl}${apiBase}/raw/?path=${path}&odpt=${encodeURIComponent(token)}`
+    }
+  } catch {}
+
+  return `${baseUrl}${apiBase}/raw/?path=${path}&odpt=${hashedToken}`
+}
 
 function LinkContainer({ title, value }: { title: string; value: string }) {
   const clipboard = useClipboard({ copiedTimeout: 1000 })
@@ -42,8 +62,16 @@ export default function CustomEmbedLinkMenu({
   const { t } = useTranslation()
 
   const hashedToken = getStoredToken(backendPath, drive)
+  const [signedUrl, setSignedUrl] = useState('')
 
-  // Focus on input automatically when menu modal opens
+  useEffect(() => {
+    if (menuOpen && hashedToken) {
+      getSignedUrl(apiBase, backendPath, drive).then(setSignedUrl)
+    } else if (menuOpen && !hashedToken) {
+      setSignedUrl(`${getBaseUrl()}${apiBase}/raw/?path=${backendPath}`)
+    }
+  }, [menuOpen, backendPath, apiBase, drive, hashedToken])
+
   const focusInputRef = useRef<HTMLInputElement>(null)
   const closeMenu = () => setMenuOpen(false)
 
@@ -67,7 +95,6 @@ export default function CustomEmbedLinkMenu({
             <Dialog.Overlay className="fixed inset-0 bg-white/60 dark:bg-gray-800/60" />
           </Transition.Child>
 
-          {/* This element is to trick the browser into centering the modal contents. */}
           <span className="inline-block h-screen align-middle" aria-hidden="true">
             &#8203;
           </span>
@@ -109,11 +136,11 @@ export default function CustomEmbedLinkMenu({
 
                 <LinkContainer
                   title={t('Default')}
-                  value={`${getBaseUrl()}${apiBase}/raw/?path=${readablePath}${hashedToken ? `&odpt=${hashedToken}` : ''}`}
+                  value={signedUrl || `${getBaseUrl()}${apiBase}/raw/?path=${readablePath}${hashedToken ? `&odpt=${hashedToken}` : ''}`}
                 />
                 <LinkContainer
                   title={t('URL encoded')}
-                  value={`${getBaseUrl()}${apiBase}/raw/?path=${backendPath}${hashedToken ? `&odpt=${hashedToken}` : ''}`}
+                  value={signedUrl || `${getBaseUrl()}${apiBase}/raw/?path=${backendPath}${hashedToken ? `&odpt=${hashedToken}` : ''}`}
                 />
               </div>
             </div>

@@ -9,7 +9,7 @@
  * - UPSTASH_REDIS_REST_TOKEN：REST 访问 token
  *
  * 容错策略：
- * - 未配置 REST 变量时返回 false（安全默认：拒绝），middleware 会回退到 cookie 存在性检查；
+ * - 未配置 REST 变量时返回 false（安全默认：拒绝），middleware 不会降级到 cookie 存在性检查；
  * - 网络错误时返回 false，避免伪造 cookie 通过；
  * - 注意：此模块仅在 middleware 调用，不影响 API 路由（API 路由用 ioredis 真校验）。
  */
