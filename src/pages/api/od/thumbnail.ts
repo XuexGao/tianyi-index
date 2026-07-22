@@ -7,7 +7,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 
 import { checkAuthRoute, encodePath, getAccessToken } from '.'
 import apiConfig from '../../../../config/api.config'
-import { isSignedToken, parseProtectedToken } from '../../../../utils/protectedTokenSigner'
+import { isSignedToken, parseProtectedToken } from '../../../utils/protectedTokenSigner'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const accessToken = await getAccessToken()

@@ -6,7 +6,7 @@ import axios, { AxiosResponseHeaders } from 'axios'
 import { driveApi, cacheControlHeader } from '../../../../config/api.config'
 import { encodePath, getAccessToken, checkAuthRoute } from '.'
 import { isAdminReq } from '../auth/check'
-import { isSignedToken, parseProtectedToken } from '../../../../utils/protectedTokenSigner'
+import { isSignedToken, parseProtectedToken } from '../../../utils/protectedTokenSigner'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // 同 /api/od/index.ts：捕获 CRYPTO_SECRET 未配置等错误，返回 JSON 而非 _error HTML
