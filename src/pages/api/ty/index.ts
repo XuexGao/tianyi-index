@@ -181,7 +181,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             name: matchedFile.name,
             size: matchedFile.size,
             lastModifiedDateTime: matchedFile.lastOpTime,
-            'file@': { mimeType: getMimeType(matchedFile.name) },
             file: { mimeType: getMimeType(matchedFile.name) },
           },
         })

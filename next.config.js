@@ -71,7 +71,7 @@ module.exports = {
     ]
   },
 
-  // 静态资源缓存头
+  // 静态资源缓存头 + 安全响应头
   async headers() {
     return [
       {
@@ -83,7 +83,24 @@ module.exports = {
           },
         ],
       },
-
+      // 全站安全响应头
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+        ],
+      },
     ]
   },
 }

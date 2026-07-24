@@ -50,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         initialized: redisStatus.initialized,
         error: redisStatus.error,
         urlMasked: redisUrlMasked,
-        urlProtocol: redisUrlRaw ? new URL(redisUrlRaw).protocol : '',
+        urlProtocol: redisUrlProtocol,
       },
       loginTest: {
         status: lt.status,

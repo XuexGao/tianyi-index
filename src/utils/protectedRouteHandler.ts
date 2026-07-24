@@ -34,9 +34,16 @@ function constantTimeEqual(a: string, b: string): boolean {
 // 安全：localStorage 中只存储 SHA256 哈希，避免明文密码泄露（如 XSS 读取 localStorage）
 // path 应为剥离挂载前缀的后端路径；drive 决定查 ty 还是 od 的私密目录列表
 export function getStoredToken(path: string, drive: Drive = 'ty'): string | null {
-  const storedToken =
-    typeof window !== 'undefined' ? JSON.parse(localStorage.getItem(matchProtectedRoute(path, drive)) as string) : ''
-  return storedToken ? storedToken : null
+  if (typeof window === 'undefined') return null
+  const storageKey = matchProtectedRoute(path, drive)
+  if (!storageKey) return null
+  try {
+    const item = localStorage.getItem(storageKey)
+    if (item === null) return null
+    return JSON.parse(item) as string || null
+  } catch {
+    return null
+  }
 }
 
 /**

@@ -6,7 +6,9 @@ import { useEffect, useState } from 'react'
  * 亮度由 BackgroundImage 组件在图片加载后采样计算，
  * 通过全局事件 'bg-dark-change' 通知，同时存到 window.__bgDark。
  *
- * 系统暗色模式优先：直接视为深色。
+ * 策略：先看系统暗色模式，如果未启用则根据背景图片亮度判断。
+ * 系统暗色模式不覆盖图片亮度判断——即使系统是暗色模式，
+ * 如果背景图片很亮，文字仍然需要暗色以保持可读性。
  *
  * @returns isDark 是否深色背景（true=需要浅色文字）
  */
@@ -15,13 +17,6 @@ export function useBackgroundBrightness(): boolean {
   const [isDark, setIsDark] = useState<boolean>(false)
 
   useEffect(() => {
-    // 系统暗色模式优先：直接视为深色
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    if (mq.matches) {
-      setIsDark(true)
-      return
-    }
-
     // 先读全局缓存
     if ((window as any).__bgDark !== undefined) {
       setIsDark(Boolean((window as any).__bgDark))

@@ -47,7 +47,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const session = await getTianyiSession(DEFAULT_USER_ID)
     let cookies = session?.cookies || null
     let username = session?.username || process.env.TIANYI_USERNAME || ''
-    let password = session?.password || process.env.TIANYI_PASSWORD || ''
+    // 密码不从 Redis 读取（tianyiSessionStore 不持久化密码），始终从环境变量获取
+    let password = process.env.TIANYI_PASSWORD || ''
 
     if (!cookies) {
       if (!process.env.TIANYI_USERNAME || !process.env.TIANYI_PASSWORD) {
@@ -81,7 +82,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return
       }
       if (cleanPath !== parsed.path && !cleanPath.startsWith(parsed.path.replace(/\/?$/, '/') + '/')) {
-        res.status(403).json({ error: 'Token path mismatch' })
+        res.status(401).json({ error: 'Token path mismatch' })
         return
       }
     } else {
