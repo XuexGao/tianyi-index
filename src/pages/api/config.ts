@@ -21,13 +21,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const redisStatus = getRedisStatus()
-  // 脱敏 REDIS_URL，只显示协议和主机，不暴露密码
+  // 脱敏 REDIS_URL，不暴露任何主机信息
   const redisUrlRaw = process.env.REDIS_URL || ''
   let redisUrlMasked = ''
+  let redisUrlProtocol = ''
   try {
     if (redisUrlRaw) {
       const u = new URL(redisUrlRaw)
-      redisUrlMasked = `${u.protocol}//***@${u.host}`
+      redisUrlMasked = `${u.protocol}//***:***@***`
+      redisUrlProtocol = u.protocol
     }
   } catch {
     redisUrlMasked = '(格式无效)'
