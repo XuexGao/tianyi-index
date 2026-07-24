@@ -48,7 +48,8 @@ async function getOrCreateSession(): Promise<
       return {
         cookies: session.cookies,
         username: session.username || U,
-        password: session.password || P,
+        // 安全：密码不存入 Redis（见 tianyiSessionStore），始终从环境变量读取
+        password: P,
       }
     }
   } catch {

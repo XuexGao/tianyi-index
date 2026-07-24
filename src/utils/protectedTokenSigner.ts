@@ -3,7 +3,18 @@ import { createHmac, randomBytes } from 'crypto'
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000
 
 function getSigningKey(): string {
-  return process.env.CRYPTO_SECRET || process.env.ADMIN_PASSWORD || ''
+  // 安全：优先使用独立 CRYPTO_SECRET 签名受保护路由 token。
+  // 回退到 ADMIN_PASSWORD 时，同一密钥同时用于管理登录和 token 签名，
+  // 若 ADMIN_PASSWORD 泄露，攻击者可同时伪造 session 和 signed token。
+  // 建议配置独立的 CRYPTO_SECRET 环境变量。
+  if (process.env.CRYPTO_SECRET) return process.env.CRYPTO_SECRET
+  if (process.env.ADMIN_PASSWORD) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[protectedTokenSigner] 使用 ADMIN_PASSWORD 作为签名密钥。建议配置独立 CRYPTO_SECRET 以提升安全性。')
+    }
+    return process.env.ADMIN_PASSWORD
+  }
+  return ''
 }
 
 function constantTimeEqual(a: string, b: string): boolean {

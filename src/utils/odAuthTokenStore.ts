@@ -8,7 +8,13 @@ let kv: Redis | null = null
 let initError: string | null = null
 try {
   if (process.env.REDIS_URL) {
-    kv = new Redis(process.env.REDIS_URL)
+    kv = new Redis(process.env.REDIS_URL, {
+      // 与其他 Redis 模块一致的容错策略：serverless 环境限制重试避免冷启动堆积
+      retryStrategy: times => (times > 2 ? null : Math.min(times * 200, 1000)),
+      maxRetriesPerRequest: 2,
+      enableOfflineQueue: false,
+      lazyConnect: false,
+    })
   } else {
     initError = 'REDIS_URL 未配置'
   }

@@ -13,7 +13,7 @@ const Auth: FC<{ redirect: string; drive?: Drive }> = ({ redirect, drive = 'ty' 
 
   const router = useRouter()
   const [token, setToken] = useState('')
-  const [_, setPersistedToken] = useLocalStorage(authTokenPath, '')
+  const [_, setPersistedToken] = useLocalStorage(authTokenPath || '__invalid__', '')
 
   const { t } = useTranslation()
 

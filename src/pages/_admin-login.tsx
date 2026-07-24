@@ -44,10 +44,10 @@ export default function AdminLoginPage() {
       if (!res.ok) {
         setError(data.error || '登录失败')
       } else {
-        // 登录成功：立即写入 sessionStorage 和 window.__isAdmin，
+        // 登录成功：写入 window.__isAdmin 全局标志，
         // 这样跳转后目标页 useIsAdmin 的 lazy initializer 能同步读到正确状态，
         // 避免首次渲染显示未登录内容（闪现）
-        sessionStorage.setItem('admin_status', '1')
+        // 注意：不再写入 sessionStorage（与 useIsAdmin 设计一致，避免双来源不一致）
         if (typeof window !== 'undefined') {
           ;(window as any).__isAdmin = true
         }

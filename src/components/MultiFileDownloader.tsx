@@ -203,9 +203,11 @@ export async function* traverseFolder(path: string, apiBase: string = '/api/ty')
   // Map as item buffer for folders with pagination
   const buf: { [k: string]: TraverseItem[] } = {}
 
-  // filter(() => true) removes gaps in the array
-  while (pool.filter(() => true).length > 0) {
-    const info: { i: number; path: string; data: any } = await Promise.race(pool.filter(() => true))
+  // 过滤掉已被 delete 的空槽位（delete pool[i] 后数组保留 empty slot，filter 会跳过它们）
+  // 使用 Boolean 作为过滤谓词，比 filter(() => true) 语义更清晰
+  const activeTasks = () => pool.filter(Boolean)
+  while (activeTasks().length > 0) {
+    const info: { i: number; path: string; data: any } = await Promise.race(activeTasks())
     const { i, path, data } = info
 
     // genTask 捕获的错误通过 data.error 传递

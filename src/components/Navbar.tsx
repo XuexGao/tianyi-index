@@ -37,7 +37,9 @@ const Navbar = () => {
   useEffect(() => {
     const storedToken = () => {
       for (const r of siteConfig.protectedRoutes) {
-        if (localStorage.hasOwnProperty(r)) {
+        // 安全：使用 getItem !== null 替代 hasOwnProperty，
+        // 避免 localStorage 原型链上的 hasOwnProperty 被覆盖导致异常
+        if (localStorage.getItem(r) !== null) {
           return true
         }
       }

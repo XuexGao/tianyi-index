@@ -21,7 +21,7 @@ export default async function handler(_req: NextApiRequest, res: NextApiResponse
     }
 
     const contentLength = upstream.headers.get('content-length')
-    // 验证上游 Content-Length 不超过限制
+    // 验证上游 Content-Length 不超过限制（发生在发送响应头之前，可以正常返回错误）
     if (contentLength) {
       const length = parseInt(contentLength, 10)
       if (!isNaN(length) && length > MAX_IMAGE_SIZE) {
@@ -36,34 +36,33 @@ export default async function handler(_req: NextApiRequest, res: NextApiResponse
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.statusCode = 200
 
-    // 用管道转发时限制数据量，超出后销毁流
+    // 用管道转发时限制数据量，超出后关闭连接
+    // 注意：响应头已发送，无法再通过 res.status() 返回错误，
+    // 超出限制时只能销毁流终止传输
     let totalBytes = 0
-    const transformed = new Readable({
-      read() {},
-    })
+    let aborted = false
     const upstreamStream = Readable.fromWeb(upstream.body as any)
     upstreamStream.on('data', (chunk: Buffer) => {
       totalBytes += chunk.length
       if (totalBytes > MAX_IMAGE_SIZE) {
-        upstreamStream.destroy()
-        transformed.destroy(new Error('image too large'))
-        if (!res.headersSent) res.status(502).json({ error: 'upstream image too large' })
+        if (!aborted) {
+          aborted = true
+          upstreamStream.destroy()
+          res.destroy()
+          console.warn('[api/wallpaper] upstream image exceeded size limit, connection aborted')
+        }
         return
       }
-      transformed.push(chunk)
-    })
-    upstreamStream.on('end', () => {
-      transformed.push(null)
-    })
-    upstreamStream.on('error', (err) => {
-      transformed.destroy(err)
     })
 
     await new Promise<void>((resolve, reject) => {
-      transformed.on('error', reject)
+      upstreamStream.on('error', (err) => {
+        if (!aborted) reject(err)
+        else resolve()
+      })
       res.on('finish', resolve)
       res.on('close', resolve)
-      transformed.pipe(res)
+      upstreamStream.pipe(res)
     })
   } catch (error) {
     console.error('[api/wallpaper] error:', error)
