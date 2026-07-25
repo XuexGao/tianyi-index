@@ -25,7 +25,7 @@ const FileListItem: FC<{ fileContent: OdFolderChildren; showSize?: boolean }> = 
       </div>
       {/* OneDrive 大小列居中：仅在 OD 模式下显示，位于名称和时间之间 */}
       {showSize && (
-        <div className="col-span-2 flex-shrink-0 truncate px-2 text-center font-mono text-sm text-gray-700 dark:text-white">
+        <div className="col-span-2 hidden flex-shrink-0 truncate px-2 text-center font-mono text-sm text-gray-700 dark:text-white md:block">
           {humanFileSize(c.size)}
         </div>
       )}
@@ -69,7 +69,7 @@ const FolderListLayout = ({
         </div>
         {/* OneDrive 大小列表头居中 */}
         {showSize && (
-          <div className="col-span-2 px-2 text-center text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300">
+          <div className="col-span-2 hidden px-2 text-center text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300 md:block">
             {t('Size')}
           </div>
         )}
