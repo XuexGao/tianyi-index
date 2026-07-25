@@ -46,3 +46,7 @@ next-env.d.ts
 
 # redis
 dump.rdb
+
+# diagnostic
+diag-*.js
+od-403-diagnostic-*.log
