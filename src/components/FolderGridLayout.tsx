@@ -131,7 +131,7 @@ const FolderGridLayout = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 p-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 p-2 md:grid-cols-4">
         {folderChildren.map((c: OdFolderChildren) => (
           <div
             key={c.id}
