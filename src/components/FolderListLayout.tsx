@@ -74,7 +74,7 @@ const FolderListLayout = ({
           </div>
         )}
         {/* 时间列表头靠右对齐 */}
-        <div className={`${showSize ? 'col-span-3' : 'col-span-4'} px-2 text-right text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300`}>
+        <div className={`${showSize ? 'col-span-3' : 'col-span-4'} whitespace-nowrap px-2 text-right text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300`}>
           {t('Last Modified')}
         </div>
       </div>
