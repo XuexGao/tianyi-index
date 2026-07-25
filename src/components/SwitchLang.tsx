@@ -61,9 +61,9 @@ const SwitchLang = () => {
           leaveTo="transform scale-95 opacity-0"
         >
           <Menu.Items
-            className="absolute top-0 right-0 z-20 mt-8 w-28 divide-y divide-gray-900/10 overflow-auto rounded-2xl py-1 shadow-lg focus:outline-none dark:text-white"
+            className="absolute top-0 right-0 z-20 mt-8 w-28 divide-y divide-gray-900/10 overflow-auto rounded-2xl py-1 shadow-lg focus:outline-none dark:text-white dark:divide-gray-100/10"
             style={{
-              backgroundColor: 'rgba(255,255,255,0.55)',
+              backgroundColor: 'var(--dropdown-bg)',
               backdropFilter: 'var(--glass-blur)',
               WebkitBackdropFilter: 'var(--glass-blur)',
               border: 'none',

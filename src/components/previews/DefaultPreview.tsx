@@ -17,24 +17,24 @@ const DefaultPreview: FC<{ file: OdFileObject }> = ({ file }) => {
     <div>
       <PreviewContainer>
         <div className="items-center px-5 py-4 md:flex md:space-x-8">
-          <div className="rounded-lg border border-gray-900/10 px-8 py-20 text-center dark:border-gray-500/30">
+          <div className="rounded-lg border border-gray-900/10 px-8 py-20 text-center dark:border-gray-500/30 dark:text-gray-200">
             <FontAwesomeIcon icon={getFileIcon(file.name, { video: Boolean(file.video) })} />
-            <div className="mt-6 text-sm font-medium line-clamp-3 md:w-28">{file.name}</div>
+            <div className="mt-6 text-sm font-medium line-clamp-3 md:w-28 dark:text-gray-300">{file.name}</div>
           </div>
 
-          <div className="flex flex-col space-y-2 py-4 md:flex-1">
+          <div className="flex flex-col space-y-2 py-4 md:flex-1 dark:text-gray-200">
             <div>
-              <div className="py-2 text-xs font-medium uppercase opacity-80">{t('Last modified')}</div>
+              <div className="py-2 text-xs font-medium uppercase opacity-80 dark:text-gray-400">{t('Last modified')}</div>
               <div>{formatModifiedDateTime(file.lastModifiedDateTime)}</div>
             </div>
 
             <div>
-              <div className="py-2 text-xs font-medium uppercase opacity-80">{t('File size')}</div>
+              <div className="py-2 text-xs font-medium uppercase opacity-80 dark:text-gray-400">{t('File size')}</div>
               <div>{humanFileSize(file.size)}</div>
             </div>
 
             <div>
-              <div className="py-2 text-xs font-medium uppercase opacity-80">{t('MIME type')}</div>
+              <div className="py-2 text-xs font-medium uppercase opacity-80 dark:text-gray-400">{t('MIME type')}</div>
               <div>{file.file?.mimeType ?? t('Unavailable')}</div>
             </div>
           </div>

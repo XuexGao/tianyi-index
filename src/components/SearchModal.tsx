@@ -199,7 +199,7 @@ export default function SearchModal({
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <Dialog.Overlay className="fixed inset-0" style={{ backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", backgroundColor: "rgba(255,255,255,0.2)" }} />
+            <Dialog.Overlay className="fixed inset-0" style={{ backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)", backgroundColor: "var(--modal-overlay-bg)" }} />
           </Transition.Child>
 
           <Transition.Child
@@ -211,7 +211,7 @@ export default function SearchModal({
             leaveFrom="opacity-100 scale-100"
             leaveTo="opacity-0 scale-95"
           >
-            <div className="my-12 inline-block w-full max-w-3xl transform overflow-hidden rounded-2xl text-left shadow-xl transition-all" style={{ backdropFilter: "var(--glass-blur)", WebkitBackdropFilter: "var(--glass-blur)", backgroundColor: "rgba(255,255,255,0.55)", border: "none" }}>
+            <div className="my-12 inline-block w-full max-w-3xl transform overflow-hidden rounded-2xl text-left shadow-xl transition-all" style={{ backdropFilter: "var(--glass-blur)", WebkitBackdropFilter: "var(--glass-blur)", backgroundColor: "var(--modal-content-bg)", border: "none" }}>
               <Dialog.Title
                 as="h3"
                 className="flex items-center space-x-4 p-4 dark:text-white" style={{ backgroundColor: "rgba(255,255,255,0.1)", borderBottom: "none" }}

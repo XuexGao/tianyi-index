@@ -65,7 +65,7 @@ const TextPreview = ({ file }) => {
   return (
     <div>
       <PreviewContainer>
-        <pre className="overflow-x-scroll p-0 text-sm md:p-3">{content}</pre>
+        <pre className="overflow-x-scroll p-0 text-sm dark:text-gray-200 md:p-3">{content}</pre>
       </PreviewContainer>
       <DownloadBtnContainer>
         <div className="flex justify-center">

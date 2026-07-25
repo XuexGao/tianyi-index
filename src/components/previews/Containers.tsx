@@ -2,7 +2,7 @@ export function PreviewContainer({ children }): JSX.Element {
   return (
     <div className="rounded-2xl p-3 shadow-sm"
       style={{
-        backgroundColor: 'rgba(255, 255, 255, 0.45)',
+        backgroundColor: 'var(--preview-bg)',
         backdropFilter: 'var(--glass-blur)',
         WebkitBackdropFilter: 'var(--glass-blur)',
       }}
@@ -21,7 +21,7 @@ export function DownloadBtnContainer({ children }): JSX.Element {
       <div
         className="rounded-2xl border border-gray-900/10 p-2 shadow-sm dark:border-gray-500/30"
         style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.55)',
+          backgroundColor: 'var(--download-btn-bg)',
           backdropFilter: 'var(--glass-blur)',
           WebkitBackdropFilter: 'var(--glass-blur)',
         }}

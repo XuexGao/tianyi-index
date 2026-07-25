@@ -92,7 +92,7 @@ const AudioPreview: FC<{ file: OdFileObject }> = ({ file }) => {
           <div className="flex w-full flex-col justify-between">
             <div>
               <div className="mb-2 font-medium">{file.name}</div>
-              <div className="mb-4 text-sm text-gray-500">
+              <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">
                 {t('Last modified:') + ' ' + formatModifiedDateTime(file.lastModifiedDateTime)}
               </div>
             </div>

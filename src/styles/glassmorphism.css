@@ -11,6 +11,22 @@
   --glass-border-light: rgba(255, 255, 255, 0.45);
   --glass-border-dark:  rgba(255, 255, 255, 0.08);
   --main-font: "LXGW WenKai", "Inter", sans-serif;
+
+  /* 毛玻璃预览容器背景（PreviewContainer） */
+  --preview-bg: rgba(255, 255, 255, 0.45);
+  /* 下载按钮栏背景 */
+  --download-btn-bg: rgba(255, 255, 255, 0.55);
+  /* 下拉菜单背景（SwitchLang、SwitchLayout） */
+  --dropdown-bg: rgba(255, 255, 255, 0.55);
+  --dropdown-hover-bg: rgba(59, 130, 246, 0.08);
+  --switch-layout-bg: rgba(255, 255, 255, 0.92);
+  /* 搜索弹窗 */
+  --modal-overlay-bg: rgba(255, 255, 255, 0.20);
+  --modal-content-bg: rgba(255, 255, 255, 0.55);
+  /* 分页栏 */
+  --pagination-bg: rgba(255, 255, 255, 0.35);
+  /* 加载层 */
+  --loading-bg: rgba(255, 255, 255, 0.45);
 }
 
 /* ---------- Global Font ---------- */
@@ -206,6 +222,21 @@ main,
   .mx-auto.w-full.max-w-5xl {
     padding-left: 0.75rem !important;
     padding-right: 0.75rem !important;
+  }
+}
+
+/* ---------- 深色模式 CSS 变量覆盖 ---------- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --preview-bg: rgba(10, 10, 20, 0.55);
+    --download-btn-bg: rgba(10, 10, 20, 0.55);
+    --dropdown-bg: rgba(15, 15, 25, 0.65);
+    --dropdown-hover-bg: rgba(59, 130, 246, 0.18);
+    --switch-layout-bg: rgba(15, 15, 25, 0.75);
+    --modal-overlay-bg: rgba(0, 0, 0, 0.35);
+    --modal-content-bg: rgba(10, 10, 20, 0.60);
+    --pagination-bg: rgba(10, 10, 20, 0.45);
+    --loading-bg: rgba(10, 10, 20, 0.55);
   }
 }
 

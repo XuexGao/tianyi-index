@@ -562,7 +562,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
               filePhase === 'measuring' || filePhase === 'expanding' ? 'absolute inset-0' : ''
             }`}
             style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.45)',
+              backgroundColor: 'var(--loading-bg)',
               backdropFilter: 'var(--glass-blur)',
               WebkitBackdropFilter: 'var(--glass-blur)',
               opacity: filePhase === 'loading' ? 1 : 0,
@@ -581,7 +581,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
             {layout.name === 'Grid' ? <FolderGridLayout {...folderProps} /> : <FolderListLayout {...folderProps} />}
 
             {!onlyOnePage && (
-              <div className="rounded-b dark:text-gray-100" style={{ backgroundColor: "rgba(255,255,255,0.35)", backdropFilter: "var(--glass-blur)", WebkitBackdropFilter: "var(--glass-blur)" }}>
+              <div className="rounded-b dark:text-gray-100" style={{ backgroundColor: "var(--pagination-bg)", backdropFilter: "var(--glass-blur)", WebkitBackdropFilter: "var(--glass-blur)" }}>
                 <div className="border-b border-gray-200 p-3 text-center font-mono text-sm text-gray-400 dark:border-gray-700">
                   {t('- showing {{count}} page(s) ', {
                     count: size,

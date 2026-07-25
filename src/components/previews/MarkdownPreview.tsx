@@ -139,7 +139,7 @@ const MarkdownPreview: FC<{
         ref={containerRef}
         className="relative overflow-hidden rounded-2xl p-3 shadow-sm"
         style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.45)',
+          backgroundColor: 'var(--preview-bg)',
           backdropFilter: 'var(--glass-blur)',
           WebkitBackdropFilter: 'var(--glass-blur)',
           maxHeight: `${maxH}px`,
