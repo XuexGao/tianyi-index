@@ -17,7 +17,7 @@ const FileListItem: FC<{ fileContent: OdFolderChildren; showSize?: boolean }> = 
   return (
     <div className="grid cursor-pointer grid-cols-10 items-center px-3 py-2.5">
       {/* 名字列：OneDrive 5 列 / 天翼云 6 列 */}
-      <div className={`${showSize ? 'col-span-5' : 'col-span-6'} flex items-center space-x-2 truncate pr-2`} title={c.name}>
+      <div className={`${showSize ? 'col-span-7 md:col-span-5' : 'col-span-6'} flex items-center space-x-2 truncate pr-2`} title={c.name}>
         <div className="w-5 flex-shrink-0 text-center">
           <ChildIcon child={c} />
         </div>
@@ -64,7 +64,7 @@ const FolderListLayout = ({
     <div className="od-files-container rounded bg-white shadow-sm dark:bg-gray-900 dark:text-gray-100">
       {/* 表头 — 使用 grid-cols-10 与数据行 FileListItem 的 grid 列数保持一致 */}
       <div className="grid grid-cols-10 items-center border-b border-gray-900/10 px-3 dark:border-gray-500/30">
-        <div className={`${showSize ? 'col-span-5' : 'col-span-6'} py-2 pr-2 text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300`}>
+        <div className={`${showSize ? 'col-span-7 md:col-span-5' : 'col-span-6'} py-2 pr-2 text-xs font-bold uppercase tracking-widest text-gray-600 dark:text-gray-300`}>
           {t('Name')}
         </div>
         {/* OneDrive 大小列表头居中 */}
