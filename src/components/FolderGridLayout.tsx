@@ -33,7 +33,7 @@ const GridItem = ({
 
   return (
     <div className="space-y-2">
-      <div className="h-32 overflow-hidden rounded border border-gray-900/10 dark:border-gray-500/30">
+      <div className="h-32 overflow-hidden rounded border border-gray-900/10 dark:border-gray-500/30 dark:bg-black">
         {thumbnailUrl && !brokenThumbnail ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -58,7 +58,7 @@ const GridItem = ({
         </span>
         <ChildName name={c.name} folder={Boolean(c.folder)} />
       </div>
-      <div className="truncate text-center font-mono text-xs text-gray-700 dark:text-gray-500">
+      <div className="truncate text-center font-mono text-xs text-gray-700 dark:text-white">
         {formatModifiedDateTime(c.lastModifiedDateTime)}
       </div>
     </div>
