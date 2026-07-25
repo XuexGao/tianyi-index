@@ -33,7 +33,7 @@ const GridItem = ({
 
   return (
     <div className="space-y-1.5">
-      <div className="h-32 overflow-hidden rounded border border-gray-900/10 dark:border-gray-500/30 dark:bg-black">
+      <div className={`h-32 overflow-hidden rounded border border-gray-900/10 dark:border-gray-500/30 dark:bg-black transition-all duration-100 ${'folder' in c ? 'p-3 group-hover:p-1.5' : ''}`}>
         {thumbnailUrl && !brokenThumbnail ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

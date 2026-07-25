@@ -15,7 +15,7 @@ import { VIRTUAL_ADMIN_FOLDER_ID, VIRTUAL_ONEDRIVE_FOLDER_ID, VIRTUAL_TIANYI_FOL
 
 const FileListItem: FC<{ fileContent: OdFolderChildren; showSize?: boolean }> = ({ fileContent: c, showSize }) => {
   return (
-    <div className="grid cursor-pointer grid-cols-10 items-center px-3 py-2.5">
+    <div className={`grid cursor-pointer grid-cols-10 items-center transition-all duration-100 ${'folder' in c ? 'px-3 py-2.5 group-hover:px-2 group-hover:py-1.5' : 'px-3 py-2.5'}`}>
       {/* 名字列：OneDrive 5 列 / 天翼云 6 列 */}
       <div className={`${showSize ? 'col-span-7 md:col-span-5' : 'col-span-6'} flex items-center space-x-2 truncate pr-2`} title={c.name}>
         <div className="w-5 flex-shrink-0 text-center">
@@ -81,7 +81,7 @@ const FolderListLayout = ({
 
       {folderChildren.map((c: OdFolderChildren) => (
         <div
-          className="od-file-entry transition-all duration-100 hover:bg-gray-100 dark:hover:bg-gray-850"
+          className="od-file-entry group transition-all duration-100 hover:bg-gray-100 dark:hover:bg-gray-850"
           key={c.id}
         >
           <Link
