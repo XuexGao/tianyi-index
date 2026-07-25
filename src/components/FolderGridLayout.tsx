@@ -32,7 +32,7 @@ const GridItem = ({
   const [brokenThumbnail, setBrokenThumbnail] = useState(false)
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <div className="h-32 overflow-hidden rounded border border-gray-900/10 dark:border-gray-500/30 dark:bg-black">
         {thumbnailUrl && !brokenThumbnail ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -52,7 +52,7 @@ const GridItem = ({
         )}
       </div>
 
-      <div className="flex items-start justify-center space-x-2">
+      <div className="flex items-start justify-center space-x-1.5">
         <span className="w-5 flex-shrink-0 text-center">
           <ChildIcon child={c} />
         </span>
