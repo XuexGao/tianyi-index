@@ -46,48 +46,65 @@ export function encodePath(path: string, base: string = basePath): string {
 }
 
 /**
- * Fetch the access token from Redis storage and check if the token requires a renew
+ * 模块级 token 初始化锁：防止冷启动时多个并发请求同时冲击 Redis，
+ * 导致所有请求都在 Redis 连接就绪前读到 null token 返回 403。
  *
- * @returns Access token for OneDrive API
+ * 第一个请求创建并持有 promise，后续并发请求复用同一 promise，
+ * 避免 "No access token" 的 403 批量爆发。
  */
+let pendingTokenPromise: Promise<string> | null = null
+
 export async function getAccessToken(): Promise<string> {
-  const { accessToken, refreshToken } = await getOdAuthTokens()
-
-  // Return in storage access token if it is still valid
-  if (typeof accessToken === 'string') {
-    return accessToken
+  // 若已有正在执行中的 token 获取/刷新操作，等待其完成
+  if (pendingTokenPromise) {
+    return pendingTokenPromise
   }
 
-  // Return empty string if no refresh token is stored, which requires the application to be re-authenticated
-  if (typeof refreshToken !== 'string') {
-    return ''
-  }
+  pendingTokenPromise = (async () => {
+    const { accessToken, refreshToken } = await getOdAuthTokens()
 
-  // Fetch new access token with in storage refresh token
-  const body = new URLSearchParams()
-  body.append('client_id', clientId)
-  body.append('redirect_uri', apiConfig.redirectUri)
-  body.append('client_secret', getClientSecret())
-  body.append('refresh_token', refreshToken)
-  body.append('grant_type', 'refresh_token')
+    // Return in storage access token if it is still valid
+    if (typeof accessToken === 'string') {
+      return accessToken
+    }
 
-  const resp = await axios.post(apiConfig.authApi, body, {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-  })
+    // Return empty string if no refresh token is stored, which requires the application to be re-authenticated
+    if (typeof refreshToken !== 'string') {
+      return ''
+    }
 
-  if ('access_token' in resp.data && 'refresh_token' in resp.data) {
-    const { expires_in, access_token, refresh_token } = resp.data
-    await storeOdAuthTokens({
-      accessToken: access_token,
-      accessTokenExpiry: parseInt(expires_in),
-      refreshToken: refresh_token,
+    // Fetch new access token with in storage refresh token
+    const body = new URLSearchParams()
+    body.append('client_id', clientId)
+    body.append('redirect_uri', apiConfig.redirectUri)
+    body.append('client_secret', getClientSecret())
+    body.append('refresh_token', refreshToken)
+    body.append('grant_type', 'refresh_token')
+
+    const resp = await axios.post(apiConfig.authApi, body, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
     })
-    return access_token
-  }
 
-  return ''
+    if ('access_token' in resp.data && 'refresh_token' in resp.data) {
+      const { expires_in, access_token, refresh_token } = resp.data
+      await storeOdAuthTokens({
+        accessToken: access_token,
+        accessTokenExpiry: parseInt(expires_in),
+        refreshToken: refresh_token,
+      })
+      return access_token
+    }
+
+    return ''
+  })()
+
+  try {
+    return await pendingTokenPromise
+  } finally {
+    pendingTokenPromise = null
+  }
 }
 
 /**
