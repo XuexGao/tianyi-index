@@ -121,41 +121,82 @@ main,
 
 /* ---------- File / Folder list rows ---------- */
 .od-file-entry {
-  transition: all 0.25s ease-in-out !important;
+  position: relative;
+  z-index: 0;
+  transition: transform 0.25s ease-in-out !important;
   border-radius: 0.625rem !important;
 }
 
+/* 悬停高亮画在伪元素上，便于四边内缩，不贴满文件框 */
+.od-file-entry::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  pointer-events: none;
+  transition: inset 0.25s ease-in-out, background-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+}
+
 .od-file-entry:hover {
-  transform: none !important;
-  background-color: rgba(255, 255, 255, 0.25) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+  transform: translateY(-1px) !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
   z-index: 1;
 }
 
+.od-file-entry:hover::before {
+  inset: 2px 8px;
+  background-color: rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
 @media (prefers-color-scheme: dark) {
-  .od-file-entry:hover {
+  .od-file-entry:hover::before {
     background-color: rgba(255, 255, 255, 0.06) !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35) !important;
   }
 }
 
 .od-file-entry:active {
-  transform: scale(0.998) !important;
+  transform: translateY(0) !important;
 }
 
 /* ---------- Grid thumbnail cards ---------- */
 .od-grid-item {
-  transition: all 0.25s ease-in-out !important;
+  position: relative;
+  z-index: 0;
+  transition: transform 0.25s ease-in-out !important;
+  border-radius: 0.5rem !important;
+}
+
+.od-grid-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  pointer-events: none;
+  transition: inset 0.25s ease-in-out, background-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
 }
 
 .od-grid-item:hover {
-  transform: translateY(-1px) !important;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08) !important;
+  transform: translateY(-2px) !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  z-index: 1;
+}
+
+.od-grid-item:hover::before {
+  inset: 3px 4px;
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1) !important;
 }
 
 @media (prefers-color-scheme: dark) {
-  .od-grid-item:hover {
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35) !important;
+  .od-grid-item:hover::before {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4) !important;
   }
 }
 
