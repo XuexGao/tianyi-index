@@ -81,7 +81,7 @@ const FolderListLayout = ({
 
       {folderChildren.map((c: OdFolderChildren) => (
         <div
-          className="od-file-entry transition-all duration-100 hover:bg-gray-100 dark:hover:bg-gray-850"
+          className="od-file-entry transition-all duration-100"
           key={c.id}
         >
           <Link

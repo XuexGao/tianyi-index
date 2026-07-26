@@ -119,6 +119,11 @@ main,
   }
 }
 
+/* 列表底部留白，使最后一项悬停高亮的下间隙 ≈ 左右 6px */
+.od-files-container:has(> .od-file-entry) {
+  padding-bottom: 4px !important;
+}
+
 /* ---------- File / Folder list rows ---------- */
 .od-file-entry {
   position: relative;
@@ -127,7 +132,7 @@ main,
   border-radius: 0.625rem !important;
 }
 
-/* 固定内缩尺寸，悬停只淡入高亮，不做从大到小 */
+/* 固定内缩：上下 2px + 容器底 4px = 6px，与左右 6px 对齐 */
 .od-file-entry::before {
   content: '';
   position: absolute;
@@ -136,8 +141,7 @@ main,
   z-index: -1;
   pointer-events: none;
   background-color: transparent;
-  box-shadow: none;
-  transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  transition: background-color 0.2s ease-in-out;
 }
 
 .od-file-entry:hover {
@@ -147,15 +151,15 @@ main,
   z-index: 1;
 }
 
+/* 浅色：灰色高亮，无阴影 */
 .od-file-entry:hover::before {
-  background-color: rgba(255, 255, 255, 0.25) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  background-color: rgba(0, 0, 0, 0.06) !important;
 }
 
+/* 深色：白色高亮，无阴影 */
 @media (prefers-color-scheme: dark) {
   .od-file-entry:hover::before {
-    background-color: rgba(255, 255, 255, 0.06) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35) !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
   }
 }
 
@@ -179,8 +183,7 @@ main,
   z-index: -1;
   pointer-events: none;
   background-color: transparent;
-  box-shadow: none;
-  transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  transition: background-color 0.2s ease-in-out;
 }
 
 .od-grid-item:hover {
@@ -191,14 +194,12 @@ main,
 }
 
 .od-grid-item:hover::before {
-  background-color: rgba(255, 255, 255, 0.2) !important;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1) !important;
+  background-color: rgba(0, 0, 0, 0.06) !important;
 }
 
 @media (prefers-color-scheme: dark) {
   .od-grid-item:hover::before {
-    background-color: rgba(255, 255, 255, 0.06) !important;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4) !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
   }
 }
 
