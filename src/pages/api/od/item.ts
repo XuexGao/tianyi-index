@@ -1,11 +1,20 @@
-import axios from 'axios'
 import type { NextApiRequest, NextApiResponse } from 'next'
 
-import { getAccessToken } from '.'
+import { getAccessToken, graphGet } from '.'
 import apiConfig from '../../../../config/api.config'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const accessToken = await getAccessToken()
+  let accessToken: string
+  try {
+    accessToken = await getAccessToken()
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'Failed to get OneDrive access token.' })
+    return
+  }
+  if (!accessToken) {
+    res.status(403).json({ error: 'No access token. OneDrive OAuth may not be completed.' })
+    return
+  }
 
   const { id = '' } = req.query
 
@@ -20,12 +29,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const itemApi = `${apiConfig.driveApi}/items/${id}`
 
     try {
-      const { data } = await axios.get(itemApi, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+      const { data } = await graphGet(itemApi, {
         params: {
           select: 'id,name,parentReference',
         },
-      })
+      }, accessToken)
       res.status(200).json(data)
     } catch (error: any) {
       console.error('[api/od/item] error:', error?.message)

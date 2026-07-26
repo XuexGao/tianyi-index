@@ -7,7 +7,13 @@ import apiConfig from '../../../../config/api.config'
 import siteConfig from '../../../../config/site.config'
 import { revealObfuscatedToken } from '../../../utils/oAuthHandler'
 import { compareHashedToken } from '../../../utils/protectedRouteHandler'
-import { getOdAuthTokens, storeOdAuthTokens } from '../../../utils/odAuthTokenStore'
+import {
+  acquireOdRefreshLock,
+  clearOdAccessToken,
+  getOdAuthTokens,
+  releaseOdRefreshLock,
+  storeOdAuthTokens,
+} from '../../../utils/odAuthTokenStore'
 import { isAdminReq } from '../auth/check'
 import { getProtectedRoutesOd } from '../../../utils/protectedRoutesStore'
 
@@ -46,64 +52,159 @@ export function encodePath(path: string, base: string = basePath): string {
 }
 
 /**
- * 模块级 token 初始化锁：防止冷启动时多个并发请求同时冲击 Redis，
- * 导致所有请求都在 Redis 连接就绪前读到 null token 返回 403。
- *
- * 第一个请求创建并持有 promise，后续并发请求复用同一 promise，
- * 避免 "No access token" 的 403 批量爆发。
+ * 模块级 token 锁：同一实例内并发请求复用同一 promise。
+ * 跨实例刷新用 Redis NX 锁（acquireOdRefreshLock），避免 refresh_token 轮换竞态。
  */
 let pendingTokenPromise: Promise<string> | null = null
 
-export async function getAccessToken(): Promise<string> {
-  // 若已有正在执行中的 token 获取/刷新操作，等待其完成
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function refreshAccessToken(refreshToken: string): Promise<string> {
+  const body = new URLSearchParams()
+  body.append('client_id', clientId)
+  body.append('redirect_uri', apiConfig.redirectUri)
+  body.append('client_secret', getClientSecret())
+  body.append('refresh_token', refreshToken)
+  body.append('grant_type', 'refresh_token')
+
+  const resp = await axios.post(apiConfig.authApi, body, {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    timeout: 15000,
+  })
+
+  // Microsoft 有时只返回 access_token + expires_in（不轮换 refresh_token）
+  if (resp.data?.access_token) {
+    const { expires_in, access_token, refresh_token } = resp.data
+    await storeOdAuthTokens({
+      accessToken: access_token,
+      accessTokenExpiry: parseInt(expires_in, 10) || 3600,
+      refreshToken: typeof refresh_token === 'string' ? refresh_token : refreshToken,
+    })
+    return access_token as string
+  }
+  return ''
+}
+
+/**
+ * @param forceRefresh 为 true 时忽略 Redis 中的 access token，强制用 refresh_token 换新
+ */
+export async function getAccessToken(forceRefresh = false): Promise<string> {
   if (pendingTokenPromise) {
     return pendingTokenPromise
   }
 
   pendingTokenPromise = (async () => {
-    const { accessToken, refreshToken } = await getOdAuthTokens()
+    if (forceRefresh) {
+      await clearOdAccessToken()
+    }
 
-    // Return in storage access token if it is still valid
-    if (typeof accessToken === 'string') {
+    let { accessToken, refreshToken } = await getOdAuthTokens()
+
+    if (!forceRefresh && typeof accessToken === 'string' && accessToken) {
       return accessToken
     }
 
-    // Return empty string if no refresh token is stored, which requires the application to be re-authenticated
-    if (typeof refreshToken !== 'string') {
-      return ''
+    if (typeof refreshToken !== 'string' || !refreshToken) {
+      // 冷启动/瞬时 Redis 失败时再读一次
+      await sleep(200)
+      ;({ accessToken, refreshToken } = await getOdAuthTokens())
+      if (!forceRefresh && typeof accessToken === 'string' && accessToken) {
+        return accessToken
+      }
+      if (typeof refreshToken !== 'string' || !refreshToken) {
+        return ''
+      }
     }
 
-    // Fetch new access token with in storage refresh token
-    const body = new URLSearchParams()
-    body.append('client_id', clientId)
-    body.append('redirect_uri', apiConfig.redirectUri)
-    body.append('client_secret', getClientSecret())
-    body.append('refresh_token', refreshToken)
-    body.append('grant_type', 'refresh_token')
-
-    const resp = await axios.post(apiConfig.authApi, body, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    })
-
-    if ('access_token' in resp.data && 'refresh_token' in resp.data) {
-      const { expires_in, access_token, refresh_token } = resp.data
-      await storeOdAuthTokens({
-        accessToken: access_token,
-        accessTokenExpiry: parseInt(expires_in),
-        refreshToken: refresh_token,
-      })
-      return access_token
+    // 跨实例互斥刷新
+    const gotLock = await acquireOdRefreshLock()
+    if (!gotLock) {
+      // 其他实例正在刷新：等待后复用新 token
+      for (let i = 0; i < 8; i++) {
+        await sleep(300)
+        const again = await getOdAuthTokens()
+        if (typeof again.accessToken === 'string' && again.accessToken) {
+          return again.accessToken
+        }
+      }
     }
 
-    return ''
+    try {
+      // 拿到锁后再读一次，可能已有新 token
+      if (!forceRefresh) {
+        const latest = await getOdAuthTokens()
+        if (typeof latest.accessToken === 'string' && latest.accessToken) {
+          return latest.accessToken
+        }
+        if (typeof latest.refreshToken === 'string' && latest.refreshToken) {
+          refreshToken = latest.refreshToken
+        }
+      }
+
+      try {
+        return await refreshAccessToken(refreshToken as string)
+      } catch (e: any) {
+        console.error('[getAccessToken] refresh failed:', e?.response?.status, e?.message)
+        // 瞬时失败重试一次
+        await sleep(400)
+        try {
+          const latest = await getOdAuthTokens()
+          const rt = typeof latest.refreshToken === 'string' ? latest.refreshToken : (refreshToken as string)
+          return await refreshAccessToken(rt)
+        } catch (e2: any) {
+          console.error('[getAccessToken] refresh retry failed:', e2?.response?.status, e2?.message)
+          return ''
+        }
+      }
+    } finally {
+      if (gotLock) {
+        await releaseOdRefreshLock()
+      }
+    }
   })()
 
   try {
     return await pendingTokenPromise
   } finally {
     pendingTokenPromise = null
+  }
+}
+
+/** Graph 请求：遇 401 时强制刷新 token 重试一次 */
+export async function graphGet<T = any>(
+  url: string,
+  options: { params?: Record<string, any>; timeout?: number } = {},
+  accessToken?: string
+): Promise<{ data: T; accessToken: string }> {
+  let token = accessToken || (await getAccessToken())
+  if (!token) {
+    const err: any = new Error('No access token')
+    err.response = { status: 403, data: { error: 'No access token. OneDrive OAuth may not be completed.' } }
+    throw err
+  }
+
+  try {
+    const { data } = await axios.get<T>(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      params: options.params,
+      timeout: options.timeout ?? 20000,
+    })
+    return { data, accessToken: token }
+  } catch (error: any) {
+    const status = error?.response?.status
+    if (status === 401) {
+      token = await getAccessToken(true)
+      if (!token) throw error
+      const { data } = await axios.get<T>(url, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: options.params,
+        timeout: options.timeout ?? 20000,
+      })
+      return { data, accessToken: token }
+    }
+    throw error
   }
 }
 
@@ -150,14 +251,13 @@ export async function checkAuthRoute(
   }
 
   try {
-    const token = await axios.get(`${apiConfig.driveApi}/root${encodePath(authTokenPath)}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      params: {
-        select: '@microsoft.graph.downloadUrl,file',
-      },
-    })
+    const { data: tokenMeta } = await graphGet(
+      `${apiConfig.driveApi}/root${encodePath(authTokenPath)}`,
+      { params: { select: '@microsoft.graph.downloadUrl,file' } },
+      accessToken
+    )
 
-    const odProtectedToken = await axios.get(token.data['@microsoft.graph.downloadUrl'], {
+    const odProtectedToken = await axios.get(tokenMeta['@microsoft.graph.downloadUrl'], {
       timeout: 15000,
       maxRedirects: 5,
     })
@@ -269,33 +369,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (raw) {
     res.setHeader('Cache-Control', 'no-cache')
 
-    const { data } = await axios.get(requestUrl, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      params: {
-        select: 'id,@microsoft.graph.downloadUrl',
-      },
-    })
+    try {
+      const { data } = await graphGet(requestUrl, {
+        params: { select: 'id,@microsoft.graph.downloadUrl' },
+      }, accessToken)
 
-    if ('@microsoft.graph.downloadUrl' in data) {
-      res.redirect(data['@microsoft.graph.downloadUrl'])
-    } else {
-      res.status(404).json({ error: 'No download url found.' })
+      if ('@microsoft.graph.downloadUrl' in data) {
+        res.redirect(data['@microsoft.graph.downloadUrl'])
+      } else {
+        res.status(404).json({ error: 'No download url found.' })
+      }
+    } catch (error: any) {
+      console.error('[api/od/index] raw error:', error?.message)
+      res.status(error?.response?.status ?? 500).json({ error: error?.response?.data?.error || 'Internal server error.' })
     }
     return
   }
 
   // Querying current path identity (file or folder) and follow up query childrens in folder
   try {
-    const { data: identityData } = await axios.get(requestUrl, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    const { data: identityData, accessToken: tokenAfterIdentity } = await graphGet(requestUrl, {
       params: {
         select: 'name,size,id,lastModifiedDateTime,folder,file,video,image',
       },
-    })
+    }, accessToken)
+    accessToken = tokenAfterIdentity
 
     if ('folder' in identityData) {
-      const { data: folderData } = await axios.get(`${requestUrl}${isRoot ? '' : ':'}/children`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+      const { data: folderData } = await graphGet(`${requestUrl}${isRoot ? '' : ':'}/children`, {
         params: {
           ...{
             select: 'name,size,id,lastModifiedDateTime,folder,file,video,image',
@@ -304,7 +405,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ...(next ? { $skipToken: next } : {}),
           ...(sort ? { $orderby: sort } : {}),
         },
-      })
+      }, accessToken)
 
       const nextPageMatch = folderData['@odata.nextLink']
         ? folderData['@odata.nextLink'].match(/&\$skiptoken=(.+)/i)
@@ -322,7 +423,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   } catch (error: any) {
     console.error('[api/od/index] error:', error?.message)
-    res.status(error?.response?.status ?? 500).json({ error: 'Internal server error.' })
+    res.status(error?.response?.status ?? 500).json({ error: error?.response?.data?.error || 'Internal server error.' })
     return
   }
 }

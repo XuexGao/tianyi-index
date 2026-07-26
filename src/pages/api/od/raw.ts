@@ -4,7 +4,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import axios, { AxiosResponseHeaders } from 'axios'
 
 import { driveApi, cacheControlHeader } from '../../../../config/api.config'
-import { encodePath, getAccessToken, checkAuthRoute } from '.'
+import { encodePath, getAccessToken, checkAuthRoute, graphGet } from '.'
 import { isAdminReq } from '../auth/check'
 import { isSignedToken, parseProtectedToken } from '../../../utils/protectedTokenSigner'
 
@@ -64,12 +64,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // admin 请求从 OneDrive 绝对根目录开始，忽略 BASE_DIRECTORY
     const requestUrl = `${driveApi}/root${encodePath(cleanPath, isAdmin ? '/' : undefined)}`
-    const { data } = await axios.get(requestUrl, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    const { data } = await graphGet(requestUrl, {
       params: {
         select: 'id,size,@microsoft.graph.downloadUrl',
       },
-    })
+    }, accessToken)
 
     if ('@microsoft.graph.downloadUrl' in data) {
       // Only proxy raw file content response for files up to 4MB

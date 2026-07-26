@@ -2,15 +2,20 @@ import type { OdThumbnail } from '../../../types'
 
 import { posix as pathPosix } from 'path'
 
-import axios from 'axios'
 import type { NextApiRequest, NextApiResponse } from 'next'
 
-import { checkAuthRoute, encodePath, getAccessToken } from '.'
+import { checkAuthRoute, encodePath, getAccessToken, graphGet } from '.'
 import apiConfig from '../../../../config/api.config'
 import { isSignedToken, parseProtectedToken } from '../../../utils/protectedTokenSigner'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const accessToken = await getAccessToken()
+  let accessToken: string
+  try {
+    accessToken = await getAccessToken()
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'Failed to get OneDrive access token.' })
+    return
+  }
   if (!accessToken) {
     res.status(403).json({ error: 'No access token.' })
     return
@@ -60,9 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const isRoot = requestPath === ''
 
   try {
-    const { data } = await axios.get(`${requestUrl}${isRoot ? '' : ':'}/thumbnails`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
+    const { data } = await graphGet(`${requestUrl}${isRoot ? '' : ':'}/thumbnails`, {}, accessToken)
 
     const thumbnailUrl = data.value && data.value.length > 0 ? (data.value[0] as OdThumbnail)[size].url : null
     if (thumbnailUrl) {

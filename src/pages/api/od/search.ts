@@ -1,7 +1,6 @@
-import axios from 'axios'
 import type { NextApiRequest, NextApiResponse } from 'next'
 
-import { encodePath, getAccessToken } from '.'
+import { encodePath, getAccessToken, graphGet } from '.'
 import apiConfig from '../../../../config/api.config'
 import siteConfig from '../../../../config/site.config'
 import { getProtectedRoutesOd } from '../../../utils/protectedRoutesStore'
@@ -20,7 +19,17 @@ function sanitiseQuery(query: string): string {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const accessToken = await getAccessToken()
+  let accessToken: string
+  try {
+    accessToken = await getAccessToken()
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || 'Failed to get OneDrive access token.' })
+    return
+  }
+  if (!accessToken) {
+    res.status(403).json({ error: 'No access token. OneDrive OAuth may not be completed.' })
+    return
+  }
 
   const { q: searchQuery = '' } = req.query
 
@@ -33,13 +42,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const searchApi = `${apiConfig.driveApi}/root${encodedPath}/search(q='${sanitiseQuery(searchQuery)}')`
 
     try {
-      const { data } = await axios.get(searchApi, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+      const { data } = await graphGet(searchApi, {
         params: {
           select: 'id,name,file,folder,parentReference',
           top: siteConfig.maxItems,
         },
-      })
+      }, accessToken)
 
       // 安全：过滤掉受保护目录下的结果，避免搜索绕过目录密码保护泄露文件元数据。
       // 采用粗匹配（命中即隐藏，宁可多隐藏也不泄露）。
