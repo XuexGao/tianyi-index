@@ -127,15 +127,17 @@ main,
   border-radius: 0.625rem !important;
 }
 
-/* 悬停高亮画在伪元素上，便于四边内缩，不贴满文件框 */
+/* 固定内缩尺寸，悬停只淡入高亮，不做从大到小 */
 .od-file-entry::before {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: 2px 6px;
   border-radius: inherit;
   z-index: -1;
   pointer-events: none;
-  transition: inset 0.25s ease-in-out, background-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+  background-color: transparent;
+  box-shadow: none;
+  transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
 
 .od-file-entry:hover {
@@ -146,7 +148,6 @@ main,
 }
 
 .od-file-entry:hover::before {
-  inset: 2px 8px;
   background-color: rgba(255, 255, 255, 0.25) !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
 }
@@ -173,11 +174,13 @@ main,
 .od-grid-item::before {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: 2px 3px;
   border-radius: inherit;
   z-index: -1;
   pointer-events: none;
-  transition: inset 0.25s ease-in-out, background-color 0.25s ease-in-out, box-shadow 0.25s ease-in-out;
+  background-color: transparent;
+  box-shadow: none;
+  transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
 
 .od-grid-item:hover {
@@ -188,7 +191,6 @@ main,
 }
 
 .od-grid-item:hover::before {
-  inset: 3px 4px;
   background-color: rgba(255, 255, 255, 0.2) !important;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1) !important;
 }
