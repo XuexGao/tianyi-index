@@ -53,15 +53,15 @@ const SwitchLang = () => {
 
         <Transition
           as={Fragment}
-          enter="transition duration-100 ease-out"
-          enterFrom="transform scale-95 opacity-0"
-          enterTo="transform scale-100 opacity-100"
-          leave="transition duration-75 ease-out"
-          leaveFrom="transform scale-100 opacity-100"
-          leaveTo="transform scale-95 opacity-0"
+          enter="transition duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
+          enterFrom="opacity-0 scale-95 -translate-y-1"
+          enterTo="opacity-100 scale-100 translate-y-0"
+          leave="transition duration-150 ease-in"
+          leaveFrom="opacity-100 scale-100 translate-y-0"
+          leaveTo="opacity-0 scale-95 -translate-y-1"
         >
           <Menu.Items
-            className="absolute top-0 right-0 z-20 mt-8 w-28 divide-y divide-gray-900/10 overflow-auto rounded-2xl py-1 shadow-lg focus:outline-none dark:text-white dark:divide-gray-100/10"
+            className="absolute top-0 right-0 z-20 mt-8 w-28 origin-top-right divide-y divide-gray-900/10 overflow-auto rounded-2xl py-1 shadow-lg focus:outline-none dark:text-white dark:divide-gray-100/10"
             style={{
               backgroundColor: 'var(--dropdown-bg)',
               backdropFilter: 'var(--glass-blur)',
