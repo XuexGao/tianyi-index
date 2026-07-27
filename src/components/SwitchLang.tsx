@@ -60,8 +60,9 @@ const SwitchLang = () => {
           leaveFrom="opacity-100 scale-100 translate-y-0"
           leaveTo="opacity-0 scale-95 -translate-y-1"
         >
+          {/* 文字颜色固定跟随明/暗色模式，不受 navbar 背景亮度采样（textColor）继承影响 */}
           <Menu.Items
-            className="absolute top-0 right-0 z-20 mt-8 w-28 origin-top-right divide-y divide-gray-900/10 overflow-auto rounded-2xl py-1 shadow-lg focus:outline-none dark:text-white dark:divide-gray-100/10"
+            className="absolute top-0 right-0 z-20 mt-8 w-28 origin-top-right divide-y divide-gray-900/10 overflow-auto rounded-2xl py-1 text-gray-700 shadow-lg focus:outline-none dark:divide-gray-100/10 dark:text-gray-100"
             style={{
               backgroundColor: 'var(--dropdown-bg)',
               backdropFilter: 'var(--glass-blur)',
