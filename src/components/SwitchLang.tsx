@@ -62,7 +62,7 @@ const SwitchLang = () => {
         >
           {/* 文字颜色固定跟随明/暗色模式，不受 navbar 背景亮度采样（textColor）继承影响 */}
           <Menu.Items
-            className="absolute top-0 right-0 z-20 mt-8 w-28 origin-top-right divide-y divide-gray-900/10 overflow-auto rounded-2xl text-gray-700 shadow-lg focus:outline-none dark:divide-gray-100/10 dark:text-gray-100"
+            className="absolute top-0 right-0 z-20 mt-8 w-32 origin-top-right divide-y divide-gray-900/10 overflow-auto rounded-2xl text-gray-700 shadow-lg focus:outline-none dark:divide-gray-100/10 dark:text-gray-100"
             style={{
               backgroundColor: 'var(--dropdown-bg)',
               backdropFilter: 'var(--glass-blur)',
@@ -79,7 +79,7 @@ const SwitchLang = () => {
                   locale={locale}
                   onClick={() => setCookie('NEXT_LOCALE', locale, { path: '/' })}
                 >
-                  <div className="m-1 cursor-pointer whitespace-nowrap rounded-xl px-2.5 py-1.5 text-left text-sm font-medium hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-600/10 dark:hover:text-blue-400">
+                  <div className="m-1 flex min-h-8 cursor-pointer items-center whitespace-nowrap rounded-xl px-3 py-1.5 text-left text-sm font-medium hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-600/10 dark:hover:text-blue-400">
                     {localeText(locale)}
                   </div>
                 </CustomLink>
