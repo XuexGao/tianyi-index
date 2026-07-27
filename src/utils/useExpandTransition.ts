@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 
 /**
  * 加载展开过渡动画 hook
@@ -81,13 +81,21 @@ export function useExpandTransition(isLoading: boolean) {
     }
   }, [phase])
 
-  // expanding → done：等过渡动画完成后收尾
-  useEffect(() => {
+  // expanding → done：先强制保留起始高度并触发布局，再切换目标高度。
+  // 直接依赖 React 两次 setState 时，浏览器可能合并更新，导致 max-height 闪变。
+  useLayoutEffect(() => {
     if (phase === 'expanding') {
+      const element = ref.current
+      const startHeight = loadingHeightRef.current
+      const targetHeight = contentHeightRef.current
+      if (!element || startHeight === null || targetHeight === null) return
+
+      element.style.maxHeight = `${startHeight}px`
+      void element.offsetHeight
+
       const frame = requestAnimationFrame(() => {
-        if (contentHeightRef.current !== null) {
-          setMaxH(contentHeightRef.current)
-        }
+        element.style.maxHeight = `${targetHeight}px`
+        setMaxH(targetHeight)
       })
       const t = setTimeout(() => setPhase('done'), 900)
       return () => {
