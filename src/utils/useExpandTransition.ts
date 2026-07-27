@@ -71,7 +71,8 @@ export function useExpandTransition(isLoading: boolean) {
     if (phase === 'measuring') {
       const measure = () => {
         if (ref.current) {
-          // Keep the loading height for one more frame so shorter content animates closed too.
+          // 先保留 loading 阶段的高度，下一帧再切换到内容高度。
+          // 这样内容比加载框矮时也能触发 max-height 的收缩动画。
           contentHeightRef.current = ref.current.scrollHeight
           setPhase('expanding')
         }
