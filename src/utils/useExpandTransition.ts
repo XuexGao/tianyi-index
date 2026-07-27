@@ -20,11 +20,13 @@ export function useExpandTransition(isLoading: boolean) {
   const [maxH, setMaxH] = useState<number>(0)
   const ref = useRef<HTMLDivElement>(null)
   const transitionedRef = useRef(false)
+  const contentHeightRef = useRef<number | null>(null)
 
   // 新一次加载（isLoading 变 true）时回到 loading，maxH 归零触发重新测量
   useEffect(() => {
     if (isLoading) {
       transitionedRef.current = false
+      contentHeightRef.current = null
       setPhase('loading')
       setMaxH(0)
     }
@@ -56,7 +58,8 @@ export function useExpandTransition(isLoading: boolean) {
     if (phase === 'measuring') {
       const measure = () => {
         if (ref.current) {
-          setMaxH(ref.current.scrollHeight)
+          // Keep the loading height for one more frame so shorter content animates closed too.
+          contentHeightRef.current = ref.current.scrollHeight
           setPhase('expanding')
         }
       }
@@ -67,8 +70,16 @@ export function useExpandTransition(isLoading: boolean) {
   // expanding → done：等过渡动画完成后收尾
   useEffect(() => {
     if (phase === 'expanding') {
+      const frame = requestAnimationFrame(() => {
+        if (contentHeightRef.current !== null) {
+          setMaxH(contentHeightRef.current)
+        }
+      })
       const t = setTimeout(() => setPhase('done'), 900)
-      return () => clearTimeout(t)
+      return () => {
+        cancelAnimationFrame(frame)
+        clearTimeout(t)
+      }
     }
   }, [phase])
 
