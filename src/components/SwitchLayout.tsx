@@ -61,7 +61,7 @@ const SwitchLayout = () => {
               >
                 <Listbox.Options
                   static
-                  className="fixed z-30 w-32 origin-top-right overflow-auto rounded-2xl py-1 text-sm shadow-lg focus:outline-none"
+                  className="fixed z-30 w-28 origin-top-right overflow-auto rounded-2xl p-1 text-sm shadow-lg focus:outline-none"
                   style={{
                     top: anchor.top,
                     right: anchor.right,
@@ -77,7 +77,7 @@ const SwitchLayout = () => {
                       className={`${
                         layout.name === preferredLayout.name &&
                         'bg-blue-50 text-blue-700 dark:bg-blue-600/10 dark:text-blue-400'
-                      } relative flex cursor-pointer select-none items-center py-1.5 pl-3 text-gray-600 transition-opacity hover:opacity-80 dark:text-gray-300`}
+                      } relative flex cursor-pointer select-none items-center rounded-xl py-1 pl-2.5 text-gray-600 transition-opacity hover:opacity-80 dark:text-gray-300`}
                       value={layout}
                     >
                       <FontAwesomeIcon className="mr-2 h-3 w-3" icon={layout.icon} />
@@ -85,7 +85,7 @@ const SwitchLayout = () => {
                         {t(layout.name)}
                       </span>
                       {layout.name === preferredLayout.name && (
-                        <span className="absolute inset-y-0 right-3 flex items-center">
+                        <span className="absolute inset-y-0 right-2.5 flex items-center">
                           <FontAwesomeIcon className="h-3 w-3" icon="check" />
                         </span>
                       )}
