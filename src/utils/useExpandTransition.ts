@@ -20,13 +20,17 @@ export function useExpandTransition(isLoading: boolean) {
   const [maxH, setMaxH] = useState<number>(0)
   const ref = useRef<HTMLDivElement>(null)
   const transitionedRef = useRef(false)
+  const loadingHeightRef = useRef<number | null>(null)
   const contentHeightRef = useRef<number | null>(null)
+  const contentReadyRef = useRef(false)
 
   // 新一次加载（isLoading 变 true）时回到 loading，maxH 归零触发重新测量
   useEffect(() => {
     if (isLoading) {
       transitionedRef.current = false
+      loadingHeightRef.current = null
       contentHeightRef.current = null
+      contentReadyRef.current = false
       setPhase('loading')
       setMaxH(0)
     }
@@ -37,7 +41,12 @@ export function useExpandTransition(isLoading: boolean) {
     if (phase === 'loading' && ref.current) {
       const measure = () => {
         if (ref.current && ref.current.scrollHeight > 0) {
-          setMaxH(ref.current.scrollHeight)
+          loadingHeightRef.current = ref.current.scrollHeight
+          setMaxH(loadingHeightRef.current)
+          if (contentReadyRef.current && !transitionedRef.current) {
+            transitionedRef.current = true
+            setPhase('measuring')
+          }
         }
       }
       // 双 rAF：第一帧 React 提交 DOM，第二帧布局完成，测量才准确
@@ -48,8 +57,12 @@ export function useExpandTransition(isLoading: boolean) {
   // 数据加载完成 → measuring：渲染内容层（opacity 0），下一帧测内容真实高度
   useEffect(() => {
     if (!isLoading && !transitionedRef.current) {
-      transitionedRef.current = true
-      setPhase('measuring')
+      contentReadyRef.current = true
+      // 等 loading 高度真正落到 DOM 后再切换，避免 max-height 从 0 直接跳到最终高度。
+      if (loadingHeightRef.current !== null) {
+        transitionedRef.current = true
+        setPhase('measuring')
+      }
     }
   }, [isLoading])
 
