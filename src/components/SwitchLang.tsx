@@ -79,7 +79,7 @@ const SwitchLang = () => {
                   locale={locale}
                   onClick={() => setCookie('NEXT_LOCALE', locale, { path: '/' })}
                 >
-                  <div className="m-1 cursor-pointer rounded-xl px-2.5 py-1 text-left text-sm font-medium hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-600/10 dark:hover:text-blue-400">
+                  <div className="m-1 cursor-pointer whitespace-nowrap rounded-xl px-2.5 py-1.5 text-left text-sm font-medium hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-600/10 dark:hover:text-blue-400">
                     {localeText(locale)}
                   </div>
                 </CustomLink>
