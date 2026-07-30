@@ -33,6 +33,8 @@ function updateBackgroundBrightness(event: SyntheticEvent<HTMLImageElement>) {
 export default function BackgroundImage() {
   return (
     <div id="bg-wallpaper" aria-hidden="true">
+      {/* Dynamic wallpaper is sampled through the native image element and canvas. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img id="bg-wallpaper-img" src="/api/wallpaper/?v=2" alt="" onLoad={updateBackgroundBrightness} />
     </div>
   )
