@@ -24,14 +24,37 @@ const SwitchLayout = () => {
 
   const buttonRef = useRef<HTMLButtonElement>(null)
   const optionsRef = useRef<HTMLElement | null>(null)
+  const frameRef = useRef<number | null>(null)
 
   const updateAnchor = useCallback(() => {
-    const button = buttonRef.current
-    const options = optionsRef.current
-    if (!button || !options) return
-    const rect = button.getBoundingClientRect()
-    options.style.top = `${rect.bottom + 6}px`
-    options.style.right = `${Math.max(8, window.innerWidth - rect.right)}px`
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = null
+      const button = buttonRef.current
+      const options = optionsRef.current
+      if (!button || !options) return
+
+      const rect = button.getBoundingClientRect()
+      const viewportPadding = 8
+      const gap = 6
+      const buttonInViewport = rect.bottom > viewportPadding && rect.top < window.innerHeight - viewportPadding
+
+      if (!buttonInViewport) {
+        options.style.visibility = 'hidden'
+        return
+      }
+
+      const belowTop = rect.bottom + gap
+      const aboveTop = rect.top - options.offsetHeight - gap
+      const top =
+        belowTop + options.offsetHeight <= window.innerHeight - viewportPadding
+          ? belowTop
+          : Math.max(viewportPadding, aboveTop)
+
+      options.style.visibility = 'visible'
+      options.style.top = `${top}px`
+      options.style.right = `${Math.max(8, window.innerWidth - rect.right)}px`
+    })
   }, [])
 
   const setOptionsNode = useCallback(
@@ -50,7 +73,7 @@ const SwitchLayout = () => {
             <Listbox.Button
               ref={buttonRef}
               onClick={updateAnchor}
-              className="relative w-full cursor-pointer rounded text-right"
+              className="relative -translate-x-1 cursor-pointer rounded text-right"
             >
               <span className="pointer-events-none flex items-center justify-end">
                 <FontAwesomeIcon className="mr-2 h-3 w-3" icon={preferredLayout.icon} />
@@ -74,7 +97,7 @@ const SwitchLayout = () => {
                 <Listbox.Options
                   ref={setOptionsNode}
                   static
-                  className="fixed z-30 w-28 origin-top-right overflow-auto rounded-2xl p-1 text-sm shadow-lg focus:outline-none"
+                  className="fixed z-30 max-h-[calc(100vh-1rem)] w-28 origin-top-right overflow-auto rounded-2xl p-1 text-sm shadow-lg focus:outline-none"
                   style={{
                     backgroundColor: 'var(--switch-layout-bg)',
                     backdropFilter: 'var(--glass-blur)',
@@ -119,9 +142,13 @@ const AnchorTracker = ({ open, onUpdate }: { open: boolean; onUpdate: () => void
     onUpdate()
     window.addEventListener('scroll', onUpdate, true)
     window.addEventListener('resize', onUpdate)
+    window.visualViewport?.addEventListener('scroll', onUpdate)
+    window.visualViewport?.addEventListener('resize', onUpdate)
     return () => {
       window.removeEventListener('scroll', onUpdate, true)
       window.removeEventListener('resize', onUpdate)
+      window.visualViewport?.removeEventListener('scroll', onUpdate)
+      window.visualViewport?.removeEventListener('resize', onUpdate)
     }
   }, [open, onUpdate])
   return null

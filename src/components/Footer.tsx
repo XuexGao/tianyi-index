@@ -50,14 +50,10 @@ function VisitStats() {
         }
 
         const [todayRes, totalRes] = await Promise.all([
-          fetch(
-            `${baseUrl}/api/websites/${wid}/stats?startAt=${startOfDay.getTime()}&endAt=${now}&timezone=${tz}`,
-            { headers }
-          ),
-          fetch(
-            `${baseUrl}/api/websites/${wid}/stats?startAt=0&endAt=${now}&timezone=${tz}`,
-            { headers }
-          ),
+          fetch(`${baseUrl}/api/websites/${wid}/stats?startAt=${startOfDay.getTime()}&endAt=${now}&timezone=${tz}`, {
+            headers,
+          }),
+          fetch(`${baseUrl}/api/websites/${wid}/stats?startAt=0&endAt=${now}&timezone=${tz}`, { headers }),
         ])
         if (todayRes.ok) {
           const d = await todayRes.json()
@@ -106,7 +102,7 @@ function VisitStats() {
 
 const Footer = () => {
   return (
-    <div className="mx-auto w-fit max-w-[42rem] px-2 pb-4 pt-4 sm:px-3">
+    <div className="mx-auto mt-6 w-fit max-w-[42rem] px-2 pb-8 pt-4 sm:px-3">
       <div className="od-footer-card rounded-xl px-4 py-4 text-center text-[11px] leading-relaxed">
         <div className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5 text-gray-600 dark:text-gray-300">
           <span>&copy; 2025 - {currentYear}</span>

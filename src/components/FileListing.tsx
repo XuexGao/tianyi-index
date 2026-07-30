@@ -15,7 +15,15 @@ import { useProtectedSWRInfinite } from '../utils/fetchWithSWR'
 import { useExpandTransition } from '../utils/useExpandTransition'
 import { getExtension, getRawExtension, getFileIcon } from '../utils/getFileIcon'
 import { getStoredToken, Drive } from '../utils/protectedRouteHandler'
-import { resolveDrive, ONEDRIVE_ENABLED, VIRTUAL_ADMIN_FOLDER_ID, VIRTUAL_TIANYI_FOLDER_ID, VIRTUAL_ONEDRIVE_FOLDER_ID, ADMIN_TY_FOLDER_NAME, ADMIN_OD_FOLDER_NAME } from '../utils/driveResolver'
+import {
+  resolveDrive,
+  ONEDRIVE_ENABLED,
+  VIRTUAL_ADMIN_FOLDER_ID,
+  VIRTUAL_TIANYI_FOLDER_ID,
+  VIRTUAL_ONEDRIVE_FOLDER_ID,
+  ADMIN_TY_FOLDER_NAME,
+  ADMIN_OD_FOLDER_NAME,
+} from '../utils/driveResolver'
 import siteConfig from '../../config/site.config'
 import { useIsAdmin } from '../utils/useIsAdmin'
 import {
@@ -218,11 +226,12 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
   // 虚拟根目录没有私密目录，传 'ty' 兼容类型即可（不会命中）
   const hashedToken = getStoredToken(backendPath, normalizedDrive)
 
-  const { data: swrData, error, size, setSize } = useProtectedSWRInfinite(
-    isVirtualAdmin ? '' : backendPath,
-    apiBaseTyped,
-    resolved.admin
-  )
+  const {
+    data: swrData,
+    error,
+    size,
+    setSize,
+  } = useProtectedSWRInfinite(isVirtualAdmin ? '' : backendPath, apiBaseTyped, resolved.admin)
 
   // /Admin 虚拟目录：构造两个云盘入口文件夹数据，不依赖云盘 API
   const data = isVirtualAdmin ? virtualAdminData() : swrData
@@ -343,12 +352,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
     // 在天翼云根目录注入虚拟文件夹入口
     // 注意：admin 路径（/Admin 下的云盘）不注入，避免在 /Admin/天翼云盘 里
     // 重复出现 Admin 和 OneDrive 入口
-    if (
-      !resolved.admin &&
-      drive === 'ty' &&
-      backendPath === '/' &&
-      siteConfig.tianyiMountPath === '/'
-    ) {
+    if (!resolved.admin && drive === 'ty' && backendPath === '/' && siteConfig.tianyiMountPath === '/') {
       const virtualFolders: OdFolderChildren[] = []
       // 登录后注入 Admin 入口
       if (isAdmin && !folderChildren.some(c => c.name === 'Admin')) {
@@ -382,9 +386,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
     }
 
     // Find README.md / READ.md files to render
-    readmeFiles = folderChildren.filter(
-      c => c.name.toLowerCase() === 'readme.md' || c.name.toLowerCase() === 'read.md'
-    )
+    readmeFiles = folderChildren.filter(c => c.name.toLowerCase() === 'readme.md' || c.name.toLowerCase() === 'read.md')
   }
 
   // Filtered file list helper
@@ -427,7 +429,9 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
       .filter(c => selected[c.id])
       .map(c => ({
         name: c.name,
-        url: `${apiBaseTyped}/raw/?path=${backendPath}/${encodeURIComponent(c.name)}${hashedToken ? `&odpt=${hashedToken}` : ''}`,
+        url: `${apiBaseTyped}/raw/?path=${backendPath}/${encodeURIComponent(c.name)}${
+          hashedToken ? `&odpt=${hashedToken}` : ''
+        }`,
       }))
 
     if (files.length == 1) {
@@ -461,7 +465,9 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
       .filter(c => selected[c.id])
       .map(
         c =>
-          `${baseUrl}${apiBaseTyped}/raw/?path=${backendPath}/${encodeURIComponent(c.name)}${hashedToken ? `&odpt=${hashedToken}` : ''}`
+          `${baseUrl}${apiBaseTyped}/raw/?path=${backendPath}/${encodeURIComponent(c.name)}${
+            hashedToken ? `&odpt=${hashedToken}` : ''
+          }`
       )
       .join('\n')
   }
@@ -581,7 +587,14 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
             {layout.name === 'Grid' ? <FolderGridLayout {...folderProps} /> : <FolderListLayout {...folderProps} />}
 
             {!onlyOnePage && (
-              <div className="rounded-b dark:text-gray-100" style={{ backgroundColor: "var(--pagination-bg)", backdropFilter: "var(--glass-blur)", WebkitBackdropFilter: "var(--glass-blur)" }}>
+              <div
+                className="rounded-b dark:text-gray-100"
+                style={{
+                  backgroundColor: 'var(--pagination-bg)',
+                  backdropFilter: 'var(--glass-blur)',
+                  WebkitBackdropFilter: 'var(--glass-blur)',
+                }}
+              >
                 <div className="border-b border-gray-200 p-3 text-center font-mono text-sm text-gray-400 dark:border-gray-700">
                   {t('- showing {{count}} page(s) ', {
                     count: size,
@@ -619,15 +632,16 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
       </div>
 
       {/* readme 独立渲染在动画容器外，不受 maxHeight/overflow 限制，避免内容被裁 */}
-      {data && readmeFiles.map(f => (
-        <div className="mt-4" key={f.id}>
-          <MarkdownPreview file={f} path={backendPath} standalone={false} />
-        </div>
-      ))}
+      {data &&
+        readmeFiles.map(f => (
+          <div className="mt-6" key={f.id}>
+            <MarkdownPreview file={f} path={backendPath} standalone={false} />
+          </div>
+        ))}
 
       {/* 天翼云超时/出错时，错误信息卡片放在 README 位置 */}
       {tyErrorWithVirtual && (
-        <div className="mt-4">
+        <div className="mt-6">
           <PreviewContainer>
             <div className="mb-2 text-sm font-bold text-gray-600 dark:text-gray-300">
               {t('TianYi cloud connection failed')}
