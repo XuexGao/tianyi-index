@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { IconProp } from '@fortawesome/fontawesome-svg-core'
 import { faList, faGrip } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -14,6 +14,7 @@ export const layouts: Array<{ id: number; name: 'Grid' | 'List'; icon: IconProp 
 
 // 面包屑栏本身带 backdrop-filter，会成为子元素的 backdrop root，令弹窗的毛玻璃失效。
 // 因此把弹窗 portal 到 body，并用按钮的实际位置做 fixed 定位。
+// 位置通过直接改 DOM style 同步，避免 React state 重渲染带来的跟随延迟。
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 const SwitchLayout = () => {
@@ -22,13 +23,24 @@ const SwitchLayout = () => {
   const { t } = useTranslation()
 
   const buttonRef = useRef<HTMLButtonElement>(null)
-  const [anchor, setAnchor] = useState({ top: 0, right: 0 })
+  const optionsRef = useRef<HTMLElement | null>(null)
 
   const updateAnchor = useCallback(() => {
-    const rect = buttonRef.current?.getBoundingClientRect()
-    if (!rect) return
-    setAnchor({ top: rect.bottom + 6, right: Math.max(8, window.innerWidth - rect.right) })
+    const button = buttonRef.current
+    const options = optionsRef.current
+    if (!button || !options) return
+    const rect = button.getBoundingClientRect()
+    options.style.top = `${rect.bottom + 6}px`
+    options.style.right = `${Math.max(8, window.innerWidth - rect.right)}px`
   }, [])
+
+  const setOptionsNode = useCallback(
+    (node: HTMLElement | null) => {
+      optionsRef.current = node
+      if (node) updateAnchor()
+    },
+    [updateAnchor]
+  )
 
   return (
     <div className="relative w-fit flex-shrink-0 text-sm text-gray-600 dark:text-gray-300">
@@ -38,7 +50,7 @@ const SwitchLayout = () => {
             <Listbox.Button
               ref={buttonRef}
               onClick={updateAnchor}
-              className="relative w-full cursor-pointer rounded pr-4 text-right"
+              className="relative w-full cursor-pointer rounded text-right"
             >
               <span className="pointer-events-none flex items-center justify-end">
                 <FontAwesomeIcon className="mr-2 h-3 w-3" icon={preferredLayout.icon} />
@@ -60,11 +72,10 @@ const SwitchLayout = () => {
                 leaveTo="opacity-0 scale-95 -translate-y-1"
               >
                 <Listbox.Options
+                  ref={setOptionsNode}
                   static
                   className="fixed z-30 w-28 origin-top-right overflow-auto rounded-2xl p-1 text-sm shadow-lg focus:outline-none"
                   style={{
-                    top: anchor.top,
-                    right: anchor.right,
                     backgroundColor: 'var(--switch-layout-bg)',
                     backdropFilter: 'var(--glass-blur)',
                     WebkitBackdropFilter: 'var(--glass-blur)',
@@ -101,7 +112,7 @@ const SwitchLayout = () => {
   )
 }
 
-// 打开时同步一次位置，并在滚动/缩放时跟随按钮
+// 打开时同步一次位置，并在滚动/缩放时直接写 style 跟随按钮
 const AnchorTracker = ({ open, onUpdate }: { open: boolean; onUpdate: () => void }) => {
   useIsomorphicLayoutEffect(() => {
     if (!open) return
