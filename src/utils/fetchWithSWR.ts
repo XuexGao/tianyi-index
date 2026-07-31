@@ -48,6 +48,18 @@ export function useProtectedSWRInfinite(path: string = '', apiBase: string = '/a
     revalidateIfStale: false,
     revalidateOnFocus: false,
     revalidateOnReconnect: true,
+    // 认证、权限和路径错误不会通过重试改变结果，避免反复触发登录链路
+    onErrorRetry: (
+      error: { status?: number; message?: unknown },
+      _key: string,
+      _config: unknown,
+      revalidate: (options: { retryCount: number }) => void,
+      options: { retryCount: number }
+    ) => {
+      if ([401, 403, 404].includes(error.status || 0)) return
+      if (options.retryCount >= 3) return
+      revalidate({ retryCount: options.retryCount + 1 })
+    },
     // 切换文件夹时保留上一个文件夹的数据，避免空白闪烁
     keepPreviousData: true,
     // 同一路径 60 秒内不重复请求

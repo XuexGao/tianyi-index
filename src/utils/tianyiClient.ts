@@ -15,7 +15,10 @@ const DEFAULT_FOLDER_ID = process.env.DEFAULT_FOLDER_ID || '-11'
  * 鉴权导航 + 路径解析会列出同一文件夹多次）可命中，显著减少到 cloud.189.cn
  * 的串行网络往返。TTL 短（60s），文件变更后最多等 60s 即刷新。
  */
-interface CacheEntry<T> { data: T; expires: number }
+interface CacheEntry<T> {
+  data: T
+  expires: number
+}
 const fileCache = new Map<string, CacheEntry<{ folders: TianyiFolder[]; files: TianyiFile[] }>>()
 
 function getCachedFiles(folderId: string) {
@@ -50,6 +53,7 @@ export interface TianyiFolder {
 export interface FilesResult {
   status: 'success' | 'error' | 'need_refresh'
   message?: string
+  upstreamStatus?: number
   data?: {
     folders: TianyiFolder[]
     files: TianyiFile[]
@@ -94,7 +98,7 @@ function preserveLongIds(data: string): any {
   // 用正则把值两侧加上引号，使其解析为字符串
   const protectedJson = data.replace(
     /("(?:id|fileId|folderId|parentId|srcFileOwnerId|operId|userId|familyId|groupId)"\s*:\s*)(\d{16,})/g,
-    (_match, key, num) => `${key}"${num}"`,
+    (_match, key, num) => `${key}"${num}"`
   )
   try {
     return JSON.parse(protectedJson)
@@ -127,10 +131,7 @@ function naturalCompare(a: string, b: string): number {
   while (ax.length && bx.length) {
     const an = ax.shift()!
     const bn = bx.shift()!
-    const nn =
-      typeof an === 'number' && typeof bn === 'number'
-        ? an - bn
-        : String(an).localeCompare(String(bn))
+    const nn = typeof an === 'number' && typeof bn === 'number' ? an - bn : String(an).localeCompare(String(bn))
     if (nn !== 0) return nn
   }
   return ax.length - bx.length
@@ -143,7 +144,7 @@ export async function getFiles(
   cookies: Record<string, string>,
   folderId: string = DEFAULT_FOLDER_ID,
   username?: string,
-  password?: string,
+  password?: string
 ): Promise<FilesResult> {
   // 命中缓存则直接返回，跳过到 cloud.189.cn 的网络往返
   const cached = getCachedFiles(folderId)
@@ -156,7 +157,7 @@ export async function getFiles(
 
   const client = axios.create({
     timeout: 30000,
-    validateStatus: (status) => status < 500, // 允许 400 状态，用于检查 InvalidSessionKey
+    validateStatus: status => status < 500, // 允许 400 状态，用于检查 InvalidSessionKey
     // 自定义响应解析：保护 19 位 long 类型 ID 不丢精度
     transformResponse: [preserveLongIds],
     headers: {
@@ -222,9 +223,9 @@ export async function getFiles(
           (typeof data === 'object' && data !== null
             ? data.errorMsg || data.msg || data.res_message
             : typeof data === 'string'
-              ? data
-              : '') || `获取文件列表失败 (HTTP ${response.status})`
-        return { status: 'error', message: errMsg }
+            ? data
+            : '') || `获取文件列表失败 (HTTP ${response.status})`
+        return { status: 'error', message: errMsg, upstreamStatus: response.status }
       }
 
       // 检查错误码
@@ -292,10 +293,7 @@ export async function getFiles(
 /**
  * 获取文件下载链接
  */
-export async function getDownloadLink(
-  cookies: Record<string, string>,
-  fileId: string,
-): Promise<DownloadResult> {
+export async function getDownloadLink(cookies: Record<string, string>, fileId: string): Promise<DownloadResult> {
   if (!fileId) {
     return { status: 'error', message: '文件ID不能为空' }
   }
@@ -305,7 +303,7 @@ export async function getDownloadLink(
     maxRedirects: 0,
     // 接受 2xx 和 3xx：天翼云的 getFileInfo.action 和下载链接都会返回 302，
     // 默认 validateStatus 只接受 2xx 会把 302 当错误抛出。
-    validateStatus: (status) => status < 400,
+    validateStatus: status => status < 400,
     // 自定义响应解析：保护 19 位 long 类型 ID 不丢精度
     transformResponse: [preserveLongIds],
     headers: {

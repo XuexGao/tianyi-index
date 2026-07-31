@@ -586,7 +586,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
           <>
             {layout.name === 'Grid' ? <FolderGridLayout {...folderProps} /> : <FolderListLayout {...folderProps} />}
 
-            {!onlyOnePage && (
+            {!onlyOnePage && !tyErrorWithVirtual && (
               <div
                 className="rounded-b dark:text-gray-100"
                 style={{
@@ -649,6 +649,7 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
             <div className="overflow-hidden break-all rounded border border-gray-400/20 bg-gray-50 p-2 font-mono text-xs dark:bg-gray-800">
               {JSON.stringify(error.message)}
             </div>
+            <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">{t('Please refresh and try again.')}</div>
           </PreviewContainer>
         </div>
       )}

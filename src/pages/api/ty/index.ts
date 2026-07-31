@@ -11,9 +11,15 @@ import { isAdminReq } from '../auth/check'
 
 const DEFAULT_USER_ID = 'default_user'
 
-function getEnvUsername(): string { return process.env.TIANYI_USERNAME || '' }
-function getEnvPassword(): string { return process.env.TIANYI_PASSWORD || '' }
-function getDefaultFolderId(): string { return process.env.DEFAULT_FOLDER_ID || '-11' }
+function getEnvUsername(): string {
+  return process.env.TIANYI_USERNAME || ''
+}
+function getEnvPassword(): string {
+  return process.env.TIANYI_PASSWORD || ''
+}
+function getDefaultFolderId(): string {
+  return process.env.DEFAULT_FOLDER_ID || '-11'
+}
 
 /**
  * 安全解码 URL 组件，遇到畸形 % 序列不抛错而是原样返回
@@ -35,8 +41,7 @@ function safeDecodeURIComponent(s: string): string {
  *          （验证码 / 密码错 / 网络错等），便于排查而非笼统的 "No access token"
  */
 async function getOrCreateSession(): Promise<
-  | { cookies: Record<string, string>; username: string; password: string }
-  | { error: string }
+  { cookies: Record<string, string>; username: string; password: string } | { error: string }
 > {
   const U = process.env.TIANYI_USERNAME || ''
   const P = process.env.TIANYI_PASSWORD || ''
@@ -80,7 +85,6 @@ async function getOrCreateSession(): Promise<
     return { error: `天翼云登录异常: ${e?.message || '未知错误'}` }
   }
 }
-
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   res.setHeader('Cache-Control', apiConfig.cacheControlHeader)
@@ -158,12 +162,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       if (listResult.status !== 'success' || !listResult.data) {
-        res.status(500).json({ error: listResult.message || '获取文件列表失败' })
+        const status = listResult.upstreamStatus && listResult.upstreamStatus >= 400 ? listResult.upstreamStatus : 500
+        res.status(status).json({ error: listResult.message || '获取文件列表失败' })
         return
       }
 
       // 先查文件夹匹配
-      const matchedFolder = listResult.data.folders.find((f) => f.name === segment)
+      const matchedFolder = listResult.data.folders.find(f => f.name === segment)
       if (matchedFolder) {
         currentFolderId = matchedFolder.id
         // 如果这是最后一段路径，继续往下获取该文件夹内容
@@ -174,7 +179,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // 如果是路径最后一段，尝试匹配文件
-      const matchedFile = listResult.data.files.find((f) => f.name === segment)
+      const matchedFile = listResult.data.files.find(f => f.name === segment)
       if (matchedFile && i === segments.length - 1) {
         res.status(200).json({
           file: {
@@ -208,20 +213,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (result.status !== 'success' || !result.data) {
-      res.status(500).json({ error: result.message || '获取文件列表失败' })
+      const status = result.upstreamStatus && result.upstreamStatus >= 400 ? result.upstreamStatus : 500
+      res.status(status).json({ error: result.message || '获取文件列表失败' })
       return
     }
 
     // 转换为 UI 期望的数据结构
     const folderChildren = [
-      ...result.data.folders.map((f) => ({
+      ...result.data.folders.map(f => ({
         id: f.id,
         name: f.name,
         size: 0,
         lastModifiedDateTime: f.lastOpTime,
         folder: { childCount: 0 },
       })),
-      ...result.data.files.map((f) => ({
+      ...result.data.files.map(f => ({
         id: f.id,
         name: f.name,
         size: f.size,

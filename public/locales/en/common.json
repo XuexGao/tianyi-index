@@ -1,5 +1,6 @@
 {
   "- showing {{count}} page(s) ——one": "- showing {{count}} page ",
+  "Please refresh and try again.": "Please refresh and try again.",
   "- showing {{count}} page(s) ——other": "- showing {{count}} pages ",
   "{{count}} item(s)——one": "{{count}} item",
   "{{count}} item(s)——other": "{{count}} items",

@@ -1,5 +1,6 @@
 {
   "- showing {{count}} page(s) ——one": "- {{count}} sayfa gösteriliyor ",
+  "Please refresh and try again.": "Lütfen sayfayı yenileyip tekrar deneyin.",
   "- showing {{count}} page(s) ——other": "- {{count}} sayfalar gösteriliyor ",
   "{{count}} item(s)——one": "{{count}} öğe",
   "{{count}} item(s)——other": "{{count}} öğeler",

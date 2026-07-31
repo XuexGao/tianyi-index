@@ -1,5 +1,6 @@
 {
   "- showing {{count}} page(s) ——other": "पेज {{count}} दिखा रहा है|",
+  "Please refresh and try again.": "कृपया पृष्ठ को फिर से लोड करके दोबारा प्रयास करें।",
   "{{count}} item(s)——other": "{{count}} दिखा रहा है|",
   "<0></0> If you are not the owner of this website, stop now, as continuing with this process may expose your personal files in OneDrive.": "<0></0> यदि आप इस वेबसाइट के स्वामी नहीं हैं, तो अभी रुकें, क्योंकि इस प्रक्रिया को जारी रखने से आपकी व्यक्तिगत फ़ाइलें OneDrive में दिखाई दे सकती हैं।",
   "<0></0> If you have not specified a REDIS_URL inside your Vercel env variable, go initialise one at <3>Upstash</3>. Docs: <6>Vercel Integration - Upstash</6>.": "यदि आपने अपने Vercel env वेरिएबल के अंदर REDIS_URL निर्दिष्ट नहीं किया है, तो एक को इनिशियलाइज़ करें<3>Upstash</3> दस्तावेज़ीकरण。文档：<6>Vercel 集成 - Upstash</6>。",

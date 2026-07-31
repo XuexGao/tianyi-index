@@ -1,5 +1,6 @@
 {
   "- showing {{count}} page(s) ——other": "已顯示 {{count}} 頁",
+  "Please refresh and try again.": "請再次重新整理重試。",
   "{{count}} item(s)——other": "{{count}} 個檔案",
   "<0></0> If you are not the owner of this website, stop now, as continuing with this process may expose your personal files in OneDrive.": "<0></0> 如果你不是這網站的擁有者，請立即停止操作，因為接下來的動作可能造成你的 OneDrive 私人檔案外洩。",
   "<0></0> If you have not specified a REDIS_URL inside your Vercel env variable, go initialise one at <3>Upstash</3>. Docs: <6>Vercel Integration - Upstash</6>.": "<0></0> 如果你還沒在 Vercel 中設置環境變數 REDIS_URL，你可以從 <3>Upstash</3> 取得一個 REDIS 來使用。操作說明：<6>Vercel 集成 - Upstash</6>。",
