@@ -50,6 +50,9 @@ module.exports = {
     },
   ],
 
+  // OneDrive 远端根目录（与 api.config / BASE_DIRECTORY 对齐，供前端搜索等逻辑使用）
+  baseDirectory: process.env.BASE_DIRECTORY || '/',
+
   // 每页最大文件数
   maxItems: 200,
 

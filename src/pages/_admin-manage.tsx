@@ -123,6 +123,15 @@ export default function AdminManagePage({
     const value = (drive === 'ty' ? newTyRoute : newOdRoute).trim()
     const routes = drive === 'ty' ? tyRoutes : odRoutes
     if (!value) return
+    // 路径格式校验：必须以 / 开头，且不含 .. 段，避免保护规则静默失效或异常匹配
+    if (!value.startsWith('/')) {
+      setMessage({ type: 'error', text: '路径必须以 / 开头' })
+      return
+    }
+    if (value.split('/').includes('..')) {
+      setMessage({ type: 'error', text: '路径不能包含 ".." 段' })
+      return
+    }
     if (routes.includes(value)) {
       setMessage({ type: 'error', text: '该路径已存在' })
       return

@@ -294,7 +294,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const accessToken = revealObfuscatedToken(obfuscatedAccessToken)
     const refreshToken = revealObfuscatedToken(obfuscatedRefreshToken)
 
-    if (typeof accessToken !== 'string' || typeof refreshToken !== 'string') {
+    // 安全：revealObfuscatedToken 对空输入返回 ''，必须拒绝空值，
+    // 否则误 POST 空 body 会把 Redis 中有效的 token 覆盖为空导致 OneDrive 失联
+    if (typeof accessToken !== 'string' || !accessToken || typeof refreshToken !== 'string' || !refreshToken) {
       res.status(400).send('Invalid request body')
       return
     }

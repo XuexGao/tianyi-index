@@ -47,7 +47,9 @@ function mapAbsolutePath(path: string): string {
 function useDriveItemSearch() {
   const [query, setQuery] = useState('')
   const searchDriveItem = async (q: string) => {
-    const { data } = await axios.get<OdSearchResult>(`/api/search/?q=${encodeURIComponent(q)}`)
+    // 合并双云盘后 API 拆分为 /api/od/* 与 /api/ty/*；天翼云不支持搜索（ty/search 返回空），
+    // 搜索仅对 OneDrive 生效。原 /api/search 路径已不存在（会被 rewrites 落空），此处修正。
+    const { data } = await axios.get<OdSearchResult>(`/api/od/search/?q=${encodeURIComponent(q)}`)
 
     // Map parentReference to the absolute path of the search result
     data.map(item => {
@@ -114,7 +116,8 @@ function SearchResultItemTemplate({
 
 function SearchResultItemLoadRemote({ result }: { result: OdSearchResult[number] }) {
   const { data, error }: SWRResponse<OdDriveItem, { status: number; message: any }> = useSWR(
-    [`/api/item/?id=${result.id}`],
+    // 原 /api/item 已不存在（合并后为 /api/od/item），此处修正
+    [`/api/od/item/?id=${result.id}`],
     fetcher
   )
 

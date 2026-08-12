@@ -3,7 +3,9 @@ import { useEffect, useState } from 'react'
 import { getStoredToken, Drive } from './protectedRouteHandler'
 
 // 模块级缓存，整个应用生命周期内有效，切换文件夹再回来无需重新请求
+// 安全：限制最大条数，防止浏览大量文件预览时内存无限增长
 const contentCache = new Map<string, string>()
+const CONTENT_CACHE_MAX_ENTRIES = 300
 
 /**
  * Custom hook for axios to fetch raw file content on component mount
@@ -37,6 +39,10 @@ export default function useFileContent(
       .get(url, { responseType: 'blob' })
       .then(async res => {
         const text = await res.data.text()
+        // 超上限时整体清空（简单策略；缓存只是加速，清空后重新请求即可）
+        if (contentCache.size >= CONTENT_CACHE_MAX_ENTRIES) {
+          contentCache.clear()
+        }
         contentCache.set(fetchUrl, text)  // 存入缓存
         setResponse(text)
       })

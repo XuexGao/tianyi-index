@@ -53,8 +53,14 @@ const Navbar = () => {
   const clearTokens = () => {
     setIsOpen(false)
 
+    // 清天翼云侧 token（key = 受保护路径）
     siteConfig.protectedRoutes.forEach(r => {
       localStorage.removeItem(r)
+    })
+
+    // 清 OneDrive 侧 token（key 带 'od:' 前缀，见 protectedRouteHandler.matchProtectedRoute）
+    ;(siteConfig.protectedRoutesOd || []).forEach(r => {
+      localStorage.removeItem(`od:${r}`)
     })
 
     toast.success(t('Cleared all tokens'))
