@@ -75,14 +75,15 @@ export function matchProtectedRoute(route: string, drive: Drive = 'ty'): string 
   for (const r of protectedRoutes) {
     // protected route array could be empty
     if (r) {
-      if (
-        route.startsWith(
-          r
-            .split('/')
-            .map(p => encodeURIComponent(p))
-            .join('/')
-        )
-      ) {
+      const encodedRoute = r
+        .split('/')
+        .map(p => encodeURIComponent(p))
+        .join('/')
+      // 路径边界匹配：完全相等，或位于该目录之下（r + '/' 开头）。
+      // 原实现用 startsWith 无边界判断，会导致 /私密目录A（不受保护）误命中 /私密目录（受保护），
+      // 前端多弹一次密码框。与后端 findProtectedRoute 的 r + '/' 边界语义保持一致。
+      const isMatch = encodedRoute === '/' || route === encodedRoute || route.startsWith(encodedRoute + '/')
+      if (isMatch) {
         // od 侧 key 加前缀，避免两个云盘同名私密目录的 token 在 localStorage 中冲突
         authTokenPath = drive === 'od' ? `od:${r}` : r
         break

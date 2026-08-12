@@ -7,9 +7,20 @@ import { getAccessToken } from '../od/index'
 import { cloud189Login } from '../../../utils/tianyiAuth'
 import { getFiles, getDownloadLink } from '../../../utils/tianyiClient'
 import { getTianyiSession, saveTianyiSession } from '../../../utils/tianyiSessionStore'
+import { checkRateLimit } from '../../../utils/rateLimit'
+import { getClientIp } from '../../../utils/getClientIp'
 import apiConfig from '../../../../config/api.config'
 
 const DEFAULT_USER_ID = 'default_user'
+
+/**
+ * WebDAV 认证失败限流：15 分钟窗口内最多 20 次失败（按 IP，Redis 计数）。
+ * WebDAV 的 Basic 认证使用 ADMIN_PASSWORD，若不限流可被无限暴力破解，
+ * 且通过认证后可浏览两个云盘的完整内容，风险高于登录接口。
+ * 仅对认证失败计数，正常 WebDAV 客户端（高频 PROPFIND/GET）不受影响。
+ */
+const MAX_AUTH_FAIL_ATTEMPTS = 20
+const AUTH_FAIL_WINDOW_SEC = 15 * 60
 
 function getTyEnvUsername(): string {
   return process.env.TIANYI_USERNAME || ''
@@ -641,6 +652,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const pathSegments: string[] = Array.isArray(req.query.path) ? req.query.path : (req.query.path ? [req.query.path as string] : [])
   const authOk = await authenticate(req, pathSegments)
   if (!authOk) {
+    // 认证失败：按 IP 限流，防止对 ADMIN_PASSWORD 暴力破解
+    const ip = getClientIp(req)
+    const rl = await checkRateLimit(`dav:auth-fail:${ip}`, MAX_AUTH_FAIL_ATTEMPTS, AUTH_FAIL_WINDOW_SEC)
+    if (!rl.allowed) {
+      res.setHeader('Retry-After', String(rl.retryAfter))
+      res.setHeader('WWW-Authenticate', 'Basic realm="WebDAV"')
+      res.status(429).json({ error: 'Too many failed attempts, please retry later.' })
+      return
+    }
     res.setHeader('WWW-Authenticate', 'Basic realm="WebDAV"')
     res.status(401).json({ error: 'Unauthorized' })
     return

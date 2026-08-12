@@ -4,6 +4,7 @@ import { createHash } from 'crypto'
 import { createAdminSession } from '../../../utils/adminSessionStore'
 import { ADMIN_COOKIE_NAME, ADMIN_COOKIE_MAX_AGE, ADMIN_COOKIE_PATH, isSameOriginReq } from '../../../utils/adminAuth'
 import { checkRateLimit } from '../../../utils/rateLimit'
+import { getClientIp } from '../../../utils/getClientIp'
 
 /**
  * 管理员登录 API
@@ -18,12 +19,6 @@ import { checkRateLimit } from '../../../utils/rateLimit'
 // 限流参数：15 分钟窗口内最多 10 次尝试（Redis 计数，跨实例生效）
 const MAX_ATTEMPTS = 10
 const WINDOW_SEC = 15 * 60
-
-function getClientIp(req: NextApiRequest): string {
-  const forwarded = req.headers['x-forwarded-for']
-  if (typeof forwarded === 'string') return forwarded.split(',')[0].trim()
-  return req.socket?.remoteAddress || 'unknown'
-}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {

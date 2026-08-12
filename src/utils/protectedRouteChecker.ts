@@ -11,8 +11,11 @@ const DEFAULT_FOLDER_ID = process.env.DEFAULT_FOLDER_ID || '-11'
  * 否则每次访问受保护路径都要重新导航目录 + 下载 .password 文件，
  * 增加 3-4 次到 cloud.189.cn 的网络往返，严重拖慢加载。
  * 密码变更后最多 5 分钟生效。
+ *
+ * 安全：限制最大条数，防止长期运行的服务内存无限增长。
  */
 const passwordCache = new Map<string, { data: string | null; expires: number }>()
+const PASSWORD_CACHE_MAX_ENTRIES = 200
 
 function getCachedPassword(route: string): string | null | undefined {
   const entry = passwordCache.get(route)
@@ -24,6 +27,10 @@ function getCachedPassword(route: string): string | null | undefined {
 }
 
 function setCachedPassword(route: string, data: string | null) {
+  // 超上限时整体清空（简单策略；缓存只是加速，清空后重新读取即可）
+  if (passwordCache.size >= PASSWORD_CACHE_MAX_ENTRIES) {
+    passwordCache.clear()
+  }
   passwordCache.set(route, { data, expires: Date.now() + 5 * 60 * 1000 })
 }
 
@@ -149,7 +156,10 @@ export async function checkProtectedRoute(
   }
 
   if (dotPassword === null) {
-    return true // .password 文件不存在，放行（与 OneDrive-Index 行为一致）
+    // 安全提示：受保护目录下没有 .password 文件时按设计放行（与 OneDrive-Index 一致），
+    // 但管理员可能误以为目录仍受保护。打日志便于发现"保护失效"的配置问题。
+    console.warn(`[protectedRouteChecker] 受保护路由 ${protectedRoutePath} 下未找到 .password 文件，当前按公开目录放行。请检查 .password 文件是否存在于正确位置。`)
+    return true
   }
 
   const hashedPassword = sha256(dotPassword).toString()

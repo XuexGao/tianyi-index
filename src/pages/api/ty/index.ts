@@ -5,7 +5,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import apiConfig from '../../../../config/api.config'
 import { cloud189Login } from '../../../utils/tianyiAuth'
 import { getFiles } from '../../../utils/tianyiClient'
-import { getTianyiSession, saveTianyiSession } from '../../../utils/tianyiSessionStore'
+import { getTianyiSession, saveTianyiSession, deleteTianyiSession } from '../../../utils/tianyiSessionStore'
 import { checkProtectedRoute } from '../../../utils/protectedRouteChecker'
 import { isAdminReq } from '../auth/check'
 
@@ -155,9 +155,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         cookies = listResult.data.cookies
       }
 
-      if (listResult.status === 'need_refresh' && listResult.data?.cookies) {
-        await saveTianyiSession(listResult.data.cookies, { username, password })
-        res.status(401).json({ error: 'Session expired. Please refresh.', needRefresh: true })
+      if (listResult.status === 'need_refresh') {
+        // 会话已失效且无法自动恢复：清除失效会话，下次请求自动重新登录
+        await deleteTianyiSession(DEFAULT_USER_ID)
+        res.status(401).json({ error: '登录已失效，请刷新页面重试', needRefresh: true })
         return
       }
 
@@ -206,9 +207,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       cookies = result.data.cookies
     }
 
-    if (result.status === 'need_refresh' && result.data?.cookies) {
-      await saveTianyiSession(result.data.cookies, { username, password })
-      res.status(401).json({ error: 'Session expired. Please refresh.', needRefresh: true })
+    if (result.status === 'need_refresh') {
+      // 会话已失效且无法自动恢复：清除失效会话，下次请求自动重新登录
+      await deleteTianyiSession(DEFAULT_USER_ID)
+      res.status(401).json({ error: '登录已失效，请刷新页面重试', needRefresh: true })
       return
     }
 

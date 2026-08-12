@@ -14,12 +14,15 @@ const DEFAULT_FOLDER_ID = process.env.DEFAULT_FOLDER_ID || '-11'
  * Vercel serverless 实例间不共享，但同实例内的重复请求（如一次请求中
  * 鉴权导航 + 路径解析会列出同一文件夹多次）可命中，显著减少到 cloud.189.cn
  * 的串行网络往返。TTL 短（60s），文件变更后最多等 60s 即刷新。
+ *
+ * 安全：限制最大条数，防止长期运行的服务内存无限增长。
  */
 interface CacheEntry<T> {
   data: T
   expires: number
 }
 const fileCache = new Map<string, CacheEntry<{ folders: TianyiFolder[]; files: TianyiFile[] }>>()
+const FILE_CACHE_MAX_ENTRIES = 500
 
 function getCachedFiles(folderId: string) {
   const entry = fileCache.get(folderId)
@@ -31,6 +34,10 @@ function getCachedFiles(folderId: string) {
 }
 
 function setCachedFiles(folderId: string, folders: TianyiFolder[], files: TianyiFile[]) {
+  // 超上限时整体清空（简单策略，避免逐条淘汰的复杂度；缓存只是加速，清空无副作用）
+  if (fileCache.size >= FILE_CACHE_MAX_ENTRIES) {
+    fileCache.clear()
+  }
   fileCache.set(folderId, { data: { folders, files }, expires: Date.now() + 60000 })
 }
 
@@ -213,8 +220,20 @@ export async function getFiles(
             // 不递增 pageNum，用新 cookies 重新请求当前页
             continue
           }
+          // 重登失败（密码错误/验证码/风控）：返回 need_refresh，
+          // 由调用方清除失效会话并返回 401，提示用户刷新而不是笼统的 500
+          return {
+            status: 'need_refresh',
+            message: loginResult.message || '登录已失效，请重新登录',
+            data: { folders: [], files: [], folderId, cookies: refreshedCookies },
+          }
         }
-        return { status: 'error', message: '登录已失效，请重新登录' }
+        // 无凭据可重登：同样返回 need_refresh，让调用方清理会话并提示
+        return {
+          status: 'need_refresh',
+          message: '登录已失效，请重新登录',
+          data: { folders: [], files: [], folderId, cookies: refreshedCookies },
+        }
       }
 
       // 处理其他非 200 响应（非会话失效的错误，返回真实错误信息而非"登录失效"）

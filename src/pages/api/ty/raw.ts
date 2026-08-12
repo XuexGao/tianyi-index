@@ -4,7 +4,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 
 import { cloud189Login } from '../../../utils/tianyiAuth'
 import { getFiles, getDownloadLink } from '../../../utils/tianyiClient'
-import { getTianyiSession, saveTianyiSession } from '../../../utils/tianyiSessionStore'
+import { getTianyiSession, saveTianyiSession, deleteTianyiSession } from '../../../utils/tianyiSessionStore'
 import { checkProtectedRoute } from '../../../utils/protectedRouteChecker'
 import { isSignedToken, parseProtectedToken } from '../../../utils/protectedTokenSigner'
 import { isAdminReq } from '../auth/check'
@@ -108,9 +108,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         cookies = result.data.cookies
       }
 
-      if (result.status === 'need_refresh' && result.data?.cookies) {
-        await saveTianyiSession(result.data.cookies, { username, password })
-        cookies = result.data.cookies
+      if (result.status === 'need_refresh') {
+        // 会话已失效且无法自动恢复：清除失效会话，下次请求自动重新登录
+        await deleteTianyiSession(DEFAULT_USER_ID)
+        res.status(401).json({ error: '登录已失效，请刷新页面重试', needRefresh: true })
+        return
       }
 
       if (result.status !== 'success' || !result.data) {
