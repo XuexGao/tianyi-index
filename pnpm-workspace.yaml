@@ -1,0 +1,10 @@
+allowBuilds:
+  sharp: true
+  esbuild: true
+  core-js: true
+  es5-ext: true
+  '@fortawesome/fontawesome-common-types': true
+  '@fortawesome/fontawesome-svg-core': true
+  '@fortawesome/free-brands-svg-icons': true
+  '@fortawesome/free-regular-svg-icons': true
+  '@fortawesome/free-solid-svg-icons': true
