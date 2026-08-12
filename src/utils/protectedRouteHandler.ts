@@ -1,5 +1,6 @@
 import sha256 from 'crypto-js/sha256'
 import siteConfig from '../../config/site.config'
+import { constantTimeEqual } from './constantTimeEqual'
 
 /** 云盘类型：ty=天翼云，od=OneDrive */
 export type Drive = 'ty' | 'od'
@@ -15,19 +16,6 @@ export function driveFromApiBase(apiBase: string): Drive {
 // Hash password token with SHA256
 export function encryptToken(token: string): string {
   return sha256(token).toString()
-}
-
-/**
- * 恒定时间字符串比较，避免通过时序差异逐字节推断哈希值。
- * （无法使用 node:crypto.timingSafeEqual，因本模块被客户端组件引用）
- */
-function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
-  let diff = 0
-  for (let i = 0; i < a.length; i++) {
-    diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  }
-  return diff === 0
 }
 
 // Fetch stored token from localStorage.

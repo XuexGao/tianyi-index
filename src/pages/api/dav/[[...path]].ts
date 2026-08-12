@@ -1,14 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { createHmac, timingSafeEqual } from 'crypto'
+import { createHmac } from 'crypto'
 import axios from 'axios'
 import { posix as pathPosix } from 'path'
 
 import { getAccessToken } from '../od/index'
-import { cloud189Login } from '../../../utils/tianyiAuth'
 import { getFiles, getDownloadLink } from '../../../utils/tianyiClient'
-import { getTianyiSession, saveTianyiSession } from '../../../utils/tianyiSessionStore'
+import { getOrCreateTianyiSession } from '../../../utils/tianyiSession'
+import { resolveTianyiPath } from '../../../utils/tianyiPath'
+import { getMimeType } from '../../../utils/mime'
+import { constantTimeEqual } from '../../../utils/constantTimeEqual'
 import { checkRateLimit } from '../../../utils/rateLimit'
 import { getClientIp } from '../../../utils/getClientIp'
+import { DAV_DRIVES, getDavDriveByName } from '../../../utils/driveRegistry'
 import apiConfig from '../../../../config/api.config'
 
 const DEFAULT_USER_ID = 'default_user'
@@ -27,20 +30,6 @@ function getTyEnvUsername(): string {
 }
 function getTyEnvPassword(): string {
   return process.env.TIANYI_PASSWORD || ''
-}
-
-function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    let diff = a.length ^ b.length
-    const buf = Buffer.alloc(Math.max(a.length, b.length))
-    for (let i = 0; i < buf.length; i++) {
-      diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0)
-    }
-    return diff === 0
-  }
-  const aBuf = Buffer.from(a)
-  const bBuf = Buffer.from(b)
-  return timingSafeEqual(aBuf, bBuf)
 }
 
 function xmlEscape(s: string): string {
@@ -64,59 +53,6 @@ function formatHttpDate(isoOrDash: string): string {
   }
   if (isNaN(d.getTime())) return 'Mon, 01 Jan 2024 00:00:00 GMT'
   return d.toUTCString()
-}
-
-function getMimeType(filename: string): string {
-  const ext = filename.split('.').pop()?.toLowerCase() || ''
-  const mimeMap: Record<string, string> = {
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    png: 'image/png',
-    gif: 'image/gif',
-    webp: 'image/webp',
-    bmp: 'image/bmp',
-    svg: 'image/svg+xml',
-    pdf: 'application/pdf',
-    doc: 'application/msword',
-    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    xls: 'application/vnd.ms-excel',
-    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    ppt: 'application/vnd.ms-powerpoint',
-    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    txt: 'text/plain',
-    md: 'text/markdown',
-    json: 'application/json',
-    xml: 'application/xml',
-    csv: 'text/csv',
-    js: 'text/javascript',
-    ts: 'text/typescript',
-    py: 'text/x-python',
-    java: 'text/x-java',
-    c: 'text/x-c',
-    cpp: 'text/x-c++',
-    h: 'text/x-c',
-    html: 'text/html',
-    css: 'text/css',
-    mp4: 'video/mp4',
-    avi: 'video/x-msvideo',
-    mov: 'video/quicktime',
-    wmv: 'video/x-ms-wmv',
-    flv: 'video/x-flv',
-    mkv: 'video/x-matroska',
-    webm: 'video/webm',
-    mp3: 'audio/mpeg',
-    wav: 'audio/wav',
-    flac: 'audio/flac',
-    aac: 'audio/aac',
-    ogg: 'audio/ogg',
-    zip: 'application/zip',
-    rar: 'application/vnd.rar',
-    '7z': 'application/x-7z-compressed',
-    tar: 'application/x-tar',
-    gz: 'application/gzip',
-    epub: 'application/epub+zip',
-  }
-  return mimeMap[ext] || 'application/octet-stream'
 }
 
 interface DavResource {
@@ -163,7 +99,7 @@ function urlEncodePath(p: string): string {
 }
 
 interface ParsedDavPath {
-  drive: 'root' | 'ty' | 'od'
+  drive: (typeof DAV_DRIVES)[number]['id'] | 'root'
   subPath: string
 }
 
@@ -174,13 +110,10 @@ function parseDavPath(segments: string[]): ParsedDavPath | null {
   const driveName = segments[0]
   const rest = segments.slice(1).filter(Boolean)
   const subPath = '/' + rest.join('/')
-  if (driveName === '天翼云盘') {
-    return { drive: 'ty', subPath }
-  }
-  if (driveName === 'OneDrive') {
-    return { drive: 'od', subPath }
-  }
-  return null
+  // 云盘注册表驱动：新增网盘只需在 driveRegistry.ts 注册 + 下方实现 listing/get 逻辑
+  const drive = getDavDriveByName(driveName)
+  if (!drive) return null
+  return { drive: drive.id, subPath }
 }
 
 function isWorkerRequest(req: NextApiRequest, pathSegments: string[]): boolean {
@@ -243,80 +176,50 @@ async function authenticate(req: NextApiRequest, pathSegments: string[]): Promis
   return constantTimeEqual(password, adminPassword)
 }
 
-async function getTySession(): Promise<{ cookies: Record<string, string> } | { error: string }> {
-  const U = getTyEnvUsername()
-  const P = getTyEnvPassword()
-  if (!U || !P) {
-    return { error: '天翼云未配置' }
-  }
-  try {
-    const session = await getTianyiSession(DEFAULT_USER_ID)
-    if (session?.cookies && Object.keys(session.cookies).length > 0) {
-      return { cookies: session.cookies }
-    }
-  } catch {
-    // continue
-  }
-  try {
-    const loginResult = await cloud189Login(U, P)
-    if (loginResult.status === 'success' && loginResult.data?.cookies) {
-      await saveTianyiSession(loginResult.data.cookies, { username: U, password: P })
-      return { cookies: loginResult.data.cookies }
-    }
-    return { error: loginResult.message || '天翼云登录失败' }
-  } catch (e: any) {
-    return { error: `天翼云登录异常: ${e?.message || '未知错误'}` }
-  }
-}
-
+/**
+ * 天翼云目录列举（PROPFIND）。
+ * 基于公共 resolveTianyiPath：文件路径返回单条资源，目录路径返回子项列表。
+ */
 async function getTyDirListing(tyPath: string, cookies: Record<string, string>): Promise<{ resources: DavResource[] } | { error: string }> {
   const segments = tyPath.split('/').filter(Boolean)
-  // WebDAV 始终从天翼云的绝对根目录开始，不受网站展示挂载点影响。
-  let currentFolderId = '-11'
-  let currentCookies = cookies
+  const username = getTyEnvUsername()
+  const password = getTyEnvPassword()
+  // WebDAV 始终从天翼云的绝对根目录开始，不受网站展示挂载点影响
+  const result = await resolveTianyiPath(cookies, segments, username, password, '-11')
 
-  for (let i = 0; i < segments.length; i++) {
-    const seg = segments[i]
-    const listResult = await getFiles(currentCookies, currentFolderId, getTyEnvUsername(), getTyEnvPassword())
-    if (listResult.data?.cookies) {
-      currentCookies = listResult.data.cookies
-    }
-    if (listResult.status !== 'success' || !listResult.data) {
-      return { error: listResult.message || '获取目录失败' }
-    }
-    const matchedFolder = listResult.data.folders.find((f) => f.name === seg)
-    if (matchedFolder) {
-      currentFolderId = matchedFolder.id
-      continue
-    }
-    const matchedFile = listResult.data.files.find((f) => f.name === seg)
-    if (matchedFile && i === segments.length - 1) {
-      const requestedHref = urlEncodePath('/dav/天翼云盘/' + segments.join('/'))
-      const resources: DavResource[] = [
-        {
-          href: requestedHref,
-          displayName: matchedFile.name,
-          isCollection: false,
-          contentLength: matchedFile.size,
-          contentType: getMimeType(matchedFile.name),
-          lastModified: formatHttpDate(matchedFile.lastOpTime),
-        },
-      ]
-      return { resources }
-    }
+  if (result.status === 'need_refresh' || result.status === 'error') {
+    return { error: result.message || '获取目录失败' }
+  }
+  if (result.status === 'not_found') {
     return { error: '路径未找到' }
   }
 
-  const result = await getFiles(currentCookies, currentFolderId, getTyEnvUsername(), getTyEnvPassword())
-  if (result.data?.cookies) {
-    currentCookies = result.data.cookies
-  }
-  if (result.status !== 'success' || !result.data) {
-    return { error: result.message || '获取目录失败' }
+  const tyDavName = getDavDriveByName('ty')?.name || '天翼云盘'
+
+  // 文件路径：返回单条文件资源
+  if (result.fileMeta) {
+    const requestedHref = urlEncodePath(`/dav/${tyDavName}/` + segments.join('/'))
+    const resources: DavResource[] = [
+      {
+        href: requestedHref,
+        displayName: result.fileMeta.name,
+        isCollection: false,
+        contentLength: result.fileMeta.size,
+        contentType: getMimeType(result.fileMeta.name),
+        lastModified: formatHttpDate(result.fileMeta.lastOpTime),
+      },
+    ]
+    return { resources }
   }
 
-  const parentHref = urlEncodePath('/dav/天翼云盘/' + segments.join('/'))
-  const parentDisplayName = segments.length > 0 ? segments[segments.length - 1] : '天翼云盘'
+  // 目录路径：列举子项
+  const listResult = await getFiles(result.cookies, result.folderId, username, password)
+  if (listResult.status !== 'success' || !listResult.data) {
+    return { error: listResult.message || '获取目录失败' }
+  }
+
+  const parentHref = urlEncodePath(`/dav/${tyDavName}/` + segments.join('/'))
+  const parentDisplayName = segments.length > 0 ? segments[segments.length - 1] : tyDavName
 
   const resources: DavResource[] = [
     {
@@ -328,7 +231,7 @@ async function getTyDirListing(tyPath: string, cookies: Record<string, string>):
     },
   ]
 
-  for (const folder of result.data.folders) {
+  for (const folder of listResult.data.folders) {
     const folderHref = parentHref.endsWith('/') ? parentHref + urlEncodePath(folder.name) + '/' : parentHref + '/' + urlEncodePath(folder.name) + '/'
     resources.push({
       href: folderHref,
@@ -339,7 +242,7 @@ async function getTyDirListing(tyPath: string, cookies: Record<string, string>):
     })
   }
 
-  for (const file of result.data.files) {
+  for (const file of listResult.data.files) {
     const fileHref = parentHref.endsWith('/') ? parentHref + urlEncodePath(file.name) : parentHref + '/' + urlEncodePath(file.name)
     resources.push({
       href: fileHref,
@@ -434,6 +337,10 @@ async function getOdDirListing(odPath: string, accessToken: string): Promise<{ r
   }
 }
 
+/**
+ * WebDAV 虚拟根目录：由云盘注册表（DAV_DRIVES）生成入口列表。
+ * 新增网盘注册后自动出现在根目录。
+ */
 async function getVirtualRootResources(): Promise<{ resources: DavResource[] }> {
   const resources: DavResource[] = [
     {
@@ -443,21 +350,16 @@ async function getVirtualRootResources(): Promise<{ resources: DavResource[] }> 
       contentType: 'httpd/unix-directory',
       lastModified: 'Mon, 01 Jan 2024 00:00:00 GMT',
     },
-    {
-      href: '/dav/%E5%A4%A9%E7%BF%BC%E4%BA%91%E7%9B%98/',
-      displayName: '天翼云盘',
-      isCollection: true,
-      contentType: 'httpd/unix-directory',
-      lastModified: 'Mon, 01 Jan 2024 00:00:00 GMT',
-    },
-    {
-      href: '/dav/OneDrive/',
-      displayName: 'OneDrive',
-      isCollection: true,
-      contentType: 'httpd/unix-directory',
-      lastModified: 'Mon, 01 Jan 2024 00:00:00 GMT',
-    },
   ]
+  for (const drive of DAV_DRIVES) {
+    resources.push({
+      href: `/dav/${encodeURIComponent(drive.name)}/`,
+      displayName: drive.name,
+      isCollection: true,
+      contentType: 'httpd/unix-directory',
+      lastModified: 'Mon, 01 Jan 2024 00:00:00 GMT',
+    })
+  }
   return { resources }
 }
 
@@ -473,7 +375,7 @@ async function handlePropfind(req: NextApiRequest, res: NextApiResponse, davPath
         resources = resources.slice(0, 1)
       }
     } else if (davPath.drive === 'ty') {
-      const session = await getTySession()
+      const session = await getOrCreateTianyiSession()
       if ('error' in session) {
         res.status(502).setHeader('Content-Type', 'text/xml; charset="utf-8"').send(
           buildPropfindXml([
@@ -571,45 +473,21 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, davPath: Par
 
   try {
     if (davPath.drive === 'ty') {
-      const session = await getTySession()
+      const session = await getOrCreateTianyiSession()
       if ('error' in session) {
         res.status(502).json({ error: session.error })
         return
       }
-      let currentFolderId = '-11'
-      let currentCookies = session.cookies
-      for (let i = 0; i < segments.length - 1; i++) {
-        const seg = segments[i]
-        const listResult = await getFiles(currentCookies, currentFolderId, getTyEnvUsername(), getTyEnvPassword())
-        if (listResult.data?.cookies) {
-          currentCookies = listResult.data.cookies
-        }
-        if (listResult.status !== 'success' || !listResult.data) {
-          res.status(500).json({ error: listResult.message || '获取目录失败' })
-          return
-        }
-        const matchedFolder = listResult.data.folders.find((f) => f.name === seg)
-        if (!matchedFolder) {
-          res.status(404).json({ error: '路径未找到' })
-          return
-        }
-        currentFolderId = matchedFolder.id
-      }
-      const fileName = segments[segments.length - 1]
-      const finalResult = await getFiles(currentCookies, currentFolderId, getTyEnvUsername(), getTyEnvPassword())
-      if (finalResult.data?.cookies) {
-        currentCookies = finalResult.data.cookies
-      }
-      if (finalResult.status !== 'success' || !finalResult.data) {
-        res.status(500).json({ error: finalResult.message || '获取文件列表失败' })
+      const result = await resolveTianyiPath(session.cookies, segments, session.username, session.password, '-11')
+      if (result.status === 'need_refresh' || result.status === 'error') {
+        res.status(502).json({ error: result.message || '获取文件列表失败' })
         return
       }
-      const matchedFile = finalResult.data.files.find((f) => f.name === fileName)
-      if (!matchedFile) {
+      if (result.status === 'not_found' || !result.fileId) {
         res.status(404).json({ error: '文件未找到' })
         return
       }
-      const dlResult = await getDownloadLink(currentCookies, matchedFile.id)
+      const dlResult = await getDownloadLink(result.cookies, result.fileId)
       if (dlResult.status !== 'success' || !dlResult.data) {
         res.status(500).json({ error: dlResult.message || '获取下载链接失败' })
         return

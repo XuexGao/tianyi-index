@@ -1,4 +1,5 @@
 import { createHmac, randomBytes } from 'crypto'
+import { constantTimeEqual } from './constantTimeEqual'
 
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000
 
@@ -15,15 +16,6 @@ function getSigningKey(): string {
     return process.env.ADMIN_PASSWORD
   }
   return ''
-}
-
-function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
-  let diff = 0
-  for (let i = 0; i < a.length; i++) {
-    diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  }
-  return diff === 0
 }
 
 export function isSignedToken(token: string): boolean {

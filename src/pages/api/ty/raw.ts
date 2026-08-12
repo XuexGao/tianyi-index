@@ -2,25 +2,15 @@ import { posix as pathPosix } from 'path'
 
 import type { NextApiRequest, NextApiResponse } from 'next'
 
-import { cloud189Login } from '../../../utils/tianyiAuth'
-import { getFiles, getDownloadLink } from '../../../utils/tianyiClient'
-import { getTianyiSession, saveTianyiSession, deleteTianyiSession } from '../../../utils/tianyiSessionStore'
+import { getOrCreateTianyiSession } from '../../../utils/tianyiSession'
+import { resolveTianyiPath } from '../../../utils/tianyiPath'
+import { getDownloadLink } from '../../../utils/tianyiClient'
+import { deleteTianyiSession } from '../../../utils/tianyiSessionStore'
 import { checkProtectedRoute } from '../../../utils/protectedRouteChecker'
 import { isSignedToken, parseProtectedToken } from '../../../utils/protectedTokenSigner'
 import { isAdminReq } from '../auth/check'
 
 const DEFAULT_USER_ID = 'default_user'
-
-/**
- * 安全解码 URL 组件，遇到畸形 % 序列不抛错而是原样返回
- */
-function safeDecodeURIComponent(s: string): string {
-  try {
-    return decodeURIComponent(s)
-  } catch {
-    return s
-  }
-}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { path = '/' } = req.query
@@ -43,34 +33,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // 整个 handler 逻辑都放进 try/catch，确保任何未预期错误都返回 JSON 而非 HTML 500
   try {
-    // 获取会话（getTianyiSession 内部已有 try/catch，失败返回 null）
-    const session = await getTianyiSession(DEFAULT_USER_ID)
-    let cookies = session?.cookies || null
-    let username = session?.username || process.env.TIANYI_USERNAME || ''
-    // 密码不从 Redis 读取（tianyiSessionStore 不持久化密码），始终从环境变量获取
-    let password = process.env.TIANYI_PASSWORD || ''
-
-    if (!cookies) {
-      if (!process.env.TIANYI_USERNAME || !process.env.TIANYI_PASSWORD) {
-        res.status(403).json({ error: 'No access token.' })
-        return
-      }
-      const loginResult = await cloud189Login(process.env.TIANYI_USERNAME, process.env.TIANYI_PASSWORD)
-      if (loginResult.status !== 'success') {
-        res.status(403).json({ error: 'Login failed: ' + (loginResult.message || loginResult.status) })
-        return
-      }
-      cookies = loginResult.data?.cookies || null
-      if (cookies) {
-        // saveTianyiSession 内部已有 try/catch，不会抛错
-        await saveTianyiSession(cookies, { username: process.env.TIANYI_USERNAME, password: process.env.TIANYI_PASSWORD })
-      }
-    }
-
-    if (!cookies) {
-      res.status(403).json({ error: 'No access token.' })
+    // 获取会话（Redis 会话优先，自动登录兜底）
+    const session = await getOrCreateTianyiSession()
+    if ('error' in session) {
+      res.status(403).json({ error: session.error })
       return
     }
+
+    const { username, password } = session
+    let cookies = session.cookies
 
     // === 受保护路由鉴权 ===
     // 防止绕过目录密码保护直接下载文件
@@ -93,61 +64,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // 逐层查找文件
+    // 逐层解析路径定位文件
     // admin 请求从天翼云绝对根目录（-11）开始
-    let currentFolderId = isAdmin ? '-11' : (process.env.DEFAULT_FOLDER_ID || '-11')
-    let fileId: string | null = null
-    let fileName: string | null = null
+    const result = await resolveTianyiPath(cookies, segments, username, password, isAdmin ? '-11' : (process.env.DEFAULT_FOLDER_ID || '-11'))
+    cookies = result.cookies
 
-    for (let i = 0; i < segments.length; i++) {
-      const segment = safeDecodeURIComponent(segments[i])
-      const result = await getFiles(cookies, currentFolderId, username, password)
+    if (result.status === 'need_refresh') {
+      // 会话已失效且无法自动恢复：清除失效会话，下次请求自动重新登录
+      await deleteTianyiSession(DEFAULT_USER_ID)
+      res.status(401).json({ error: '登录已失效，请刷新页面重试', needRefresh: true })
+      return
+    }
 
-      // getFiles 可能在会话失效后重新登录，同步新 cookies 供后续调用使用
-      if (result.data?.cookies) {
-        cookies = result.data.cookies
-      }
-
-      if (result.status === 'need_refresh') {
-        // 会话已失效且无法自动恢复：清除失效会话，下次请求自动重新登录
-        await deleteTianyiSession(DEFAULT_USER_ID)
-        res.status(401).json({ error: '登录已失效，请刷新页面重试', needRefresh: true })
-        return
-      }
-
-      if (result.status !== 'success' || !result.data) {
-        res.status(500).json({ error: result.message || '获取文件列表失败' })
-        return
-      }
-
-      // 检查文件夹匹配
-      const matchedFolder = result.data.folders.find((f) => f.name === segment)
-      if (matchedFolder) {
-        currentFolderId = matchedFolder.id
-        if (i < segments.length - 1) continue
-        // 最后一段是文件夹 -> 不支持下载文件夹，返回 400
-        res.status(400).json({ error: 'Cannot download a folder.' })
-        return
-      }
-
-      // 检查文件匹配
-      const matchedFile = result.data.files.find((f) => f.name === segment)
-      if (matchedFile && i === segments.length - 1) {
-        fileId = matchedFile.id
-        fileName = matchedFile.name
-        break
-      }
-
+    if (result.status === 'not_found') {
       res.status(404).json({ error: 'File not found.' })
       return
     }
 
-    if (!fileId) {
-      res.status(404).json({ error: 'File not found.' })
+    if (result.status !== 'ok') {
+      res.status(500).json({ error: result.message || '获取文件列表失败' })
       return
     }
 
-    const downloadResult = await getDownloadLink(cookies, fileId)
+    if (!result.fileId) {
+      // 路径最后一段是文件夹 -> 不支持下载文件夹
+      res.status(400).json({ error: 'Cannot download a folder.' })
+      return
+    }
+
+    const downloadResult = await getDownloadLink(cookies, result.fileId)
     if (downloadResult.status !== 'success' || !downloadResult.data?.url) {
       res.status(500).json({ error: downloadResult.message || '获取下载链接失败' })
       return
