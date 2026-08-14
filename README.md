@@ -61,7 +61,7 @@
 | `NEXT_PUBLIC_SITE_TITLE` | `TianYi-Index` | 网站标题，显示在左上角和浏览器标签 |
 | `NEXT_PUBLIC_TIANYI_MOUNT_PATH` | `/` | 天翼云挂载路径。设为 `/Tianyi` 则天翼云文件出现在 `/Tianyi` 下 |
 | `NEXT_PUBLIC_ONEDRIVE_MOUNT_PATH` | `/OneDrive` | OneDrive 挂载路径。天翼云根目录会自动出现 OneDrive 文件夹入口。设为空则禁用 OneDrive |
-| `NEXT_PUBLIC_PROTECTED_ROUTES` | `/其他文件/文件传输` | 天翼云受密码保护的目录路径，多个用逗号分隔。需在天翼云对应目录下放 `.password` 文件 |
+| `NEXT_PUBLIC_PROTECTED_ROUTES` | （空） | 天翼云受密码保护的目录路径，多个用逗号分隔。需在天翼云对应目录下放 `.password` 文件 |
 | `NEXT_PUBLIC_PROTECTED_ROUTES_OD` | （空） | OneDrive 受密码保护的目录路径（相对于 `BASE_DIRECTORY`），多个用逗号分隔 |
 | `NEXT_PUBLIC_EMAIL` | （空） | 联系邮箱，显示在导航栏，格式 `you@example.com` |
 | `NEXT_PUBLIC_UMAMI_BASE_URL` | （空） | Umami 统计服务地址，例如 `https://umami.example.com`。三个 Umami 变量需同时配置才生效 |

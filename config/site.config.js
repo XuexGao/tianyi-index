@@ -12,6 +12,14 @@ module.exports = {
   // 网站标题
   title: process.env.NEXT_PUBLIC_SITE_TITLE || 'TianYi-Index',
 
+  // 网站描述（SEO / OG / RSS）
+  description:
+    process.env.NEXT_PUBLIC_SITE_DESCRIPTION ||
+    '天翼云网盘文件浏览器 —— 基于 OneDrive 与天翼云盘的双云盘文件分享站',
+
+  // 社交分享图（相对路径，需为绝对 URL 时会拼接站点域名）
+  ogImage: process.env.NEXT_PUBLIC_SITE_OG_IMAGE || '/android-chrome-512x512.png',
+
   // === 双云盘挂载路径配置 ===
   // 天翼云挂载到网站的哪个路径（默认根目录 /）
   // 环境变量 NEXT_PUBLIC_TIANYI_MOUNT_PATH 优先（需 NEXT_PUBLIC_ 前缀，前端 driveResolver 要读取）
@@ -28,7 +36,7 @@ module.exports = {
   // 路径是相对于天翼云挂载点内部的路径（不含挂载前缀）
   protectedRoutes: process.env.NEXT_PUBLIC_PROTECTED_ROUTES
     ? process.env.NEXT_PUBLIC_PROTECTED_ROUTES.split(',')
-    : ['/其他文件/文件传输'],
+    : [],
 
   // OneDrive 侧私密目录：环境变量 NEXT_PUBLIC_PROTECTED_ROUTES_OD 优先，逗号分隔
   // 路径是相对于 OneDrive BASE_DIRECTORY 内部的路径（不含挂载前缀 /OneDrive）
