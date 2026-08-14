@@ -1,4 +1,3 @@
-import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 
@@ -8,16 +7,20 @@ import FileListing from '../components/FileListing'
 import Footer from '../components/Footer'
 import Breadcrumb from '../components/Breadcrumb'
 import SwitchLayout from '../components/SwitchLayout'
+import Seo from '../components/Seo'
 import { isAdminFromReq } from '../utils/ssrAdmin'
 
-export default function Folders({ ssrIsAdmin = false }: { ssrIsAdmin?: boolean }) {
+export default function Folders({ ssrIsAdmin = false, baseUrl }: { ssrIsAdmin?: boolean; baseUrl: string }) {
   const { query, asPath } = useRouter()
+
+  // 当前路径最后一段作为页面标题（目录/文件名）
+  const pathSegments = asPath.split('/').filter(Boolean)
+  const currentName = pathSegments.length > 0 ? decodeURIComponent(pathSegments[pathSegments.length - 1]) : null
+  const seoTitle = currentName ? `${currentName} - ${siteConfig.title}` : siteConfig.title
 
   return (
     <div className="od-page-wrapper flex min-h-[110vh] flex-col items-center">
-      <Head>
-        <title>{siteConfig.title}</title>
-      </Head>
+      <Seo title={seoTitle} description={siteConfig.description} path={asPath} baseUrl={baseUrl} />
 
       <main className="od-main flex w-full flex-1 flex-col">
         <Navbar />
@@ -38,9 +41,12 @@ export default function Folders({ ssrIsAdmin = false }: { ssrIsAdmin?: boolean }
 }
 
 export async function getServerSideProps({ locale, req }: { locale: string; req: any }) {
+  // 可信站点域名：SITE_URL env 优先，避免 Host 头注入
+  const baseUrl = (process.env.SITE_URL || `https://${req.headers.host || 'example.com'}`).replace(/\/$/, '')
   return {
     props: {
       ssrIsAdmin: await isAdminFromReq(req),
+      baseUrl,
       ...(await serverSideTranslations(locale, ['common'])),
     },
   }

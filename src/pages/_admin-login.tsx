@@ -64,6 +64,7 @@ export default function AdminLoginPage() {
     <>
       <Head>
         <title>登录 - {process.env.NEXT_PUBLIC_SITE_TITLE || 'TianYi-Index'}</title>
+        <meta name="robots" content="noindex, nofollow" />
       </Head>
       <Navbar />
       <div className="mx-auto w-full max-w-md px-4 py-16">

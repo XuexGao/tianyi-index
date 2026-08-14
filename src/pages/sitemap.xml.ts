@@ -1,5 +1,6 @@
 import type { GetServerSidePropsContext } from 'next'
 import i18nConfig from '../../next-i18next.config'
+import siteConfig from '../../config/site.config'
 
 /**
  * sitemap.xml
@@ -36,6 +37,14 @@ const STATIC_PAGES: { path: string; changefreq: string; priority: string }[] = [
   { path: '/404', changefreq: 'monthly', priority: '0.3' },
 ]
 
+// 云盘挂载根目录作为二级入口加入 sitemap（非根路径且启用时才添加）
+const mountRoots: { path: string; changefreq: string; priority: string }[] = [
+  { path: siteConfig.tianyiMountPath, changefreq: 'daily', priority: '0.8' },
+  { path: siteConfig.onedriveMountPath, changefreq: 'daily', priority: '0.8' },
+].filter(m => m.path && m.path !== '/')
+
+const SITEMAP_PAGES = [...STATIC_PAGES, ...mountRoots]
+
 export async function getServerSideProps({ req, res }: GetServerSidePropsContext) {
   // 安全：优先使用环境变量配置的可信域名，避免 Host 头注入攻击
   // 攻击者可伪造 Host 头让 sitemap 中的 URL 指向恶意域名
@@ -44,7 +53,7 @@ export async function getServerSideProps({ req, res }: GetServerSidePropsContext
 
   const urls: string[] = []
 
-  for (const page of STATIC_PAGES) {
+  for (const page of SITEMAP_PAGES) {
     const alternates = LOCALES.map(
       loc => `      <xhtml:link rel="alternate" hreflang="${loc}" href="${escapeXml(localizedUrl(baseUrl, loc, page.path))}" />`
     ).join('\n')

@@ -199,6 +199,7 @@ export default function AdminManagePage({
     <>
       <Head>
         <title>管理 - {process.env.NEXT_PUBLIC_SITE_TITLE || 'TianYi-Index'}</title>
+        <meta name="robots" content="noindex, nofollow" />
       </Head>
       <div className="min-h-screen bg-white text-slate-900 [font-family:-apple-system,BlinkMacSystemFont,'Segoe_UI','PingFang_SC','Noto_Sans_SC',sans-serif]">
         <a href="#admin-content" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-blue-600 focus:px-3 focus:py-2 focus:text-sm focus:text-white">
