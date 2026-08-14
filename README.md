@@ -122,13 +122,69 @@ Cloudflare DNS 需要有：
 
 ### OneDrive OAuth 授权流程
 
-1. 在 [Azure Portal](https://portal.azure.com/) → App registrations 注册一个应用
-2. 配置 Redirect URI 为 `http://localhost`（与 `config/api.config.js` 中 `redirectUri` 一致）
-3. 获取 `CLIENT_ID` 和 `CLIENT_SECRET`
-4. 用 `CRYPTO_SECRET` 作为密钥加密 `CLIENT_SECRET`（可使用项目内的 `obfuscateToken` 函数或在线 AES 加密工具），把加密产物填入 `CLIENT_SECRET` 变量
-5. 填入 `USER_PRINCIPAL_NAME`（你的 Microsoft 账户邮箱）
-6. 部署后访问 `/onedrive-index-oauth/step-1`，按页面提示完成三步授权
-7. 授权成功后 refresh token 会自动存入 Redis，OneDrive 即可正常使用
+> 原理：OneDrive 走 Microsoft OAuth 2.0 **授权码模式**。站点后端用存在 Redis 里的 `refresh_token` 自动换取 `access_token` 调用 Microsoft Graph API，token 过期会自动续期，**无需你手动干预**。以下流程只需要在你**首次部署后执行一次**，把 refresh token 写入 Redis；之后所有授权数据都在服务端处理，token 不会经过浏览器。
+
+#### 第 0 步：确认前置条件
+
+- `REDIS_URL` 已配置（Upstash，`rediss://` 格式）—— refresh token 存放在这里
+- `CRYPTO_SECRET` 已配置—— 用于加密 `CLIENT_SECRET` 与 token（见下方安全配置表）
+
+#### 第 1 步：在 Azure Portal 注册应用（一次性）
+
+1. 打开 [Azure Portal](https://portal.azure.com/) → 搜索并进入 **App registrations** → 点 **New registration**
+2. 填写注册信息：
+   - **Name**：任意，例如 `TianYi-Index OneDrive`
+   - **Supported account types**：选择 **Accounts in any organizational directory and personal Microsoft accounts**（个人 OneDrive 必须选含 personal 的选项；代码里走 `common` 租户）
+   - **Redirect URI**：平台选 **Web**，URI 填 **`http://localhost`**（必须与 `config/api.config.js` 中 `redirectUri` 完全一致，不要改动）
+3. 点 **Register** 后进入应用 Overview 页，复制 **Application (client) ID** —— 这就是 `CLIENT_ID`
+4. 左侧菜单 **Certificates & secrets** → **New client secret**：
+   - Description 随意，Expires 建议选最长的有效期
+   - 创建后**立即复制 Value**（页面刷新后不再显示）—— 这就是明文 `CLIENT_SECRET`
+5. （可选但推荐）左侧 **API permissions** → **Add a permission** → Microsoft Graph → Delegated permissions → 添加 `Files.Read.All`。运行时会请求 `user.read files.read.all offline_access` 三个权限，个人账户在授权页同意后自动生效
+
+#### 第 2 步：加密 CLIENT_SECRET
+
+服务端用 `CRYPTO_SECRET` 作为 AES 密钥解密 `CLIENT_SECRET`，所以必须**先用 `CRYPTO_SECRET` 加密真实密钥**，再填入环境变量（直接填明文会解密失败）。在项目根目录执行：
+
+```bash
+node -e "const CryptoJS = require('crypto-js'); console.log(CryptoJS.AES.encrypt('你的真实CLIENT_SECRET', '你的CRYPTO_SECRET').toString())"
+```
+
+把输出的密文填入 `CLIENT_SECRET` 环境变量。
+
+#### 第 3 步：配置环境变量（Vercel）并重新部署
+
+| 变量 | 说明 |
+|------|------|
+| `CLIENT_ID` | Azure 应用的 Application (client) ID |
+| `CLIENT_SECRET` | 用 `CRYPTO_SECRET` 加密后的密文（不是明文） |
+| `USER_PRINCIPAL_NAME` | 你的 Microsoft 账户邮箱（登录 OneDrive 用的那个） |
+| `BASE_DIRECTORY` | 默认 `/`；只想挂载子目录时改为 `/Photos/Blog` 之类的路径 |
+
+#### 第 4 步：访问授权页面，完成三步授权
+
+部署完成后访问 `https://<你的域名>/onedrive-index-oauth/step-1`：
+
+1. **step-1（准备）**：页面展示当前配置的 `CLIENT_ID`、`REDIRECT_URI`、scope 等信息供核对，点 **Proceed to OAuth** 进入下一步
+2. **step-2（获取授权码）**：
+   - 点击页面上的 OAuth 链接，新标签页打开 Microsoft 登录页
+   - 用你的 Microsoft 账户登录并点击同意授权
+   - 浏览器随后跳转到 `http://localhost/?code=M.R3_BAY...` —— localhost 打不开是**正常现象**，只需把**地址栏里的整条 URL 复制**下来
+   - 回到 step-2 页面，把整条 URL 粘贴进输入框，页面会自动提取出 `code`，显示绿色提示后点 **Get tokens**
+3. **step-3（换取并存储 token）**：服务端用授权码向 Microsoft 换取 `access_token` + `refresh_token`，然后调用 Graph API（`/v1.0/me`）校验登录账户是否与 `USER_PRINCIPAL_NAME` 一致——不一致会拒绝存储，防止授权到了错误的账号。校验通过后 token 直接写入 Redis，**不经过浏览器**。页面显示成功，2 秒后自动跳回首页
+
+#### 第 5 步：验证
+
+刷新首页或访问 `/OneDrive`，能看到文件列表即表示授权成功。此后 `access_token` 过期时，后端会用 `refresh_token` 自动续期（含跨 serverless 实例的互斥刷新锁，避免 token 轮换竞态），无需再手动授权。
+
+#### 常见问题
+
+| 问题 | 原因与解决 |
+|------|-----------|
+| step-3 报错 `Do not pretend to be the site owner` | 授权登录的账户与 `USER_PRINCIPAL_NAME` 不一致，检查是否登录了正确的 Microsoft 账户 |
+| 报错 `CRYPTO_SECRET 环境变量未配置` | 检查 `CRYPTO_SECRET` 是否已设置，且 `CLIENT_SECRET` 是用同一个密钥加密的 |
+| step-2 粘贴 URL 后 code 为空 | 复制的必须是完整 URL（含 `?code=...`），且以 `http://localhost` 开头 |
+| 想重新授权 | 已有有效 token 时访问 step-1/2/3 会直接跳回首页。需要重走流程时，先清空 Redis 中 OneDrive 的 access/refresh token，再访问 `/onedrive-index-oauth/step-1` |
 
 ### 私密目录使用说明
 
