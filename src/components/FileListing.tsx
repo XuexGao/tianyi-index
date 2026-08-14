@@ -634,14 +634,14 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
       {/* readme 独立渲染在动画容器外，不受 maxHeight/overflow 限制，避免内容被裁 */}
       {data &&
         readmeFiles.map(f => (
-          <div className="mt-6" key={f.id}>
+          <div className="mt-3" key={f.id}>
             <MarkdownPreview file={f} path={backendPath} standalone={false} />
           </div>
         ))}
 
       {/* 天翼云超时/出错时，错误信息卡片放在 README 位置 */}
       {tyErrorWithVirtual && (
-        <div className="mt-6">
+        <div className="mt-3">
           <PreviewContainer>
             <div className="mb-2 text-sm font-bold text-gray-600 dark:text-gray-300">
               {t('TianYi cloud connection failed')}
