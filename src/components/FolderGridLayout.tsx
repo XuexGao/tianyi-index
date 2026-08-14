@@ -31,9 +31,15 @@ const GridItem = ({
   // Some thumbnails are broken, so we check for onerror event in the image component
   const [brokenThumbnail, setBrokenThumbnail] = useState(false)
 
+  // 虚拟入口（Admin / 天翼云盘 / OneDrive）不显示子项数量
+  const isVirtualFolder =
+    c.id === VIRTUAL_ONEDRIVE_FOLDER_ID || c.id === VIRTUAL_TIANYI_FOLDER_ID || c.id === VIRTUAL_ADMIN_FOLDER_ID
+  // 子项数量：仅文件夹有值，文件为 undefined 不渲染角标
+  const childCount = c.folder ? c.folder.childCount : undefined
+
   return (
     <div className="space-y-1.5">
-      <div className="h-32 overflow-hidden rounded border border-gray-900/10 dark:border-gray-500/30 dark:bg-black">
+      <div className="h-32 overflow-hidden rounded-lg bg-black/5 dark:bg-white/10">
         {thumbnailUrl && !brokenThumbnail ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -43,19 +49,18 @@ const GridItem = ({
             onError={() => setBrokenThumbnail(true)}
           />
         ) : (
-          <div className="relative flex h-full w-full items-center justify-center rounded-lg">
+          <div className="relative flex h-full w-full items-center justify-center text-6xl text-gray-600/80 dark:text-gray-300/80">
             <ChildIcon child={c} />
-            <span className="absolute bottom-0 right-0 m-1 font-medium text-gray-700 dark:text-gray-500">
-              {c.id === VIRTUAL_ONEDRIVE_FOLDER_ID || c.id === VIRTUAL_TIANYI_FOLDER_ID || c.id === VIRTUAL_ADMIN_FOLDER_ID ? null : c.folder?.childCount}
-            </span>
+            {c.folder && !isVirtualFolder && childCount !== undefined && (
+              <span className="absolute right-1.5 bottom-1.5 rounded-md bg-gray-900/50 px-1.5 py-0.5 font-mono text-xs font-medium text-white dark:bg-white/60 dark:text-gray-900">
+                {childCount}
+              </span>
+            )}
           </div>
         )}
       </div>
 
-      <div className="flex items-start justify-center space-x-1.5">
-        <span className="w-5 flex-shrink-0 text-center">
-          <ChildIcon child={c} />
-        </span>
+      <div className="flex items-start justify-center">
         <ChildName name={c.name} folder={Boolean(c.folder)} />
       </div>
       <div className="truncate text-center font-mono text-xs text-gray-700 dark:text-white">
