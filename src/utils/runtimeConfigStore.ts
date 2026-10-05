@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto'
 import Redis from 'ioredis'
 import siteConfig from '../../config/site.config'
+import apiConfig from '../../config/api.config'
 
 export const RUNTIME_CONFIG_KEY = `${siteConfig.kvPrefix}runtime:config`
 export const CONFIG_AUDIT_KEY = `${siteConfig.kvPrefix}admin:config:audit`
@@ -169,12 +170,20 @@ export async function invalidateConfigCaches(admin = 'admin') {
   const results: string[] = []
   try {
     if (!redis) throw new Error('Redis 不可用')
+    // 注意：pattern 必须与各 store 实际写入的 key 完全对应，否则 SCAN 命中 0 个 key，
+    // 清缓存会静默变成空操作。对照来源：
+    // - tianyiSessionStore: `${kvPrefix}tianyi:session:${userId}`
+    // - odAuthTokenStore:   `${kvPrefix}od:access_token` / `${kvPrefix}od:refresh_token`
+    // - adminSessionStore:  `${kvPrefix}admin:session:${token}`
+    // - rateLimit:          `${kvPrefix}ratelimit:${key}`（注意是 ratelimit 无下划线）
+    // protected 下载令牌是 HMAC 无状态签名，不落 Redis，因此无需清理。
     const patterns = [
-      `${siteConfig.kvPrefix}ty:session:*`,
-      `${siteConfig.kvPrefix}od:token:*`,
+      `${siteConfig.kvPrefix}tianyi:session:*`,
+      // access_token 带 TTL、refresh_token 永不过期，两者都要删，否则无法重新授权
+      `${siteConfig.kvPrefix}od:access_token`,
+      `${siteConfig.kvPrefix}od:refresh_token`,
       `${siteConfig.kvPrefix}admin:session:*`,
-      `${siteConfig.kvPrefix}protected:token:*`,
-      `rate_limit:*`,
+      `${siteConfig.kvPrefix}ratelimit:*`,
     ]
     for (const pattern of patterns) {
       let cursor = '0'
@@ -228,17 +237,42 @@ export async function testRuntimeConfigConnections() {
   const clientId = await getRuntimeConfigValue('CLIENT_ID')
   const clientSecret = await getRuntimeConfigValue('CLIENT_SECRET')
   if (clientId && clientSecret) {
-    // 有凭据时做一次真实校验：能否拿到 access token 并访问 drive 根
+    // 安全：这里必须真打一次 Graph。仅判断 accessToken 非空是不够的——
+    // token 有效但租户无 SharePoint 许可证（Graph 返回 400 "Tenant does not have a SPO license"）
+    // 或 BASE_DIRECTORY 不存在时，旧实现都会误报"连接正常"，掩盖真实故障。
     try {
-      const { getAccessToken } = await import('../pages/api/od/index')
+      const { getAccessToken, graphGet } = await import('../pages/api/od/index')
+
       const accessToken = await getAccessToken()
       if (!accessToken) {
-        results.onedrive = { ok: false, message: 'OneDrive 未授权或 token 刷新失败' }
+        results.onedrive = { ok: false, message: 'OneDrive 未授权或 token 刷新失败（Redis 中无可用 refresh_token）' }
       } else {
-        results.onedrive = { ok: true, message: 'OneDrive 连接正常（token 有效）' }
+        // driveApi 即 https://graph.microsoft.com/v1.0/me/drive，是本项目实际使用的根接口
+        const { data } = await graphGet<any>(
+          apiConfig.driveApi,
+          { params: { select: 'id,name,driveType,quota' }, timeout: 15000 },
+          accessToken
+        )
+        const quota = data?.quota
+        const quotaText =
+          quota && typeof quota.remaining === 'number'
+            ? `，剩余 ${(quota.remaining / 1024 ** 3).toFixed(1)} GB / ${(quota.total / 1024 ** 3).toFixed(1)} GB`
+            : ''
+        results.onedrive = {
+          ok: true,
+          message: `OneDrive 连接正常（${data?.driveType || 'drive'}${quotaText}）`,
+        }
       }
     } catch (error: any) {
-      results.onedrive = { ok: false, message: error?.message || 'OneDrive 连接失败' }
+      // 把 Graph 的原始错误透出来，便于区分许可证 / 权限 / 路径问题
+      const status = error?.response?.status
+      const graphErr = error?.response?.data?.error
+      const graphMsg = typeof graphErr === 'string' ? graphErr : graphErr?.message
+      const detail = graphMsg || error?.message || '未知错误'
+      results.onedrive = {
+        ok: false,
+        message: status ? `OneDrive 连接失败（HTTP ${status}）：${detail}` : `OneDrive 连接失败：${detail}`,
+      }
     }
   } else {
     results.onedrive = { ok: false, message: '未配置 OneDrive 凭据' }

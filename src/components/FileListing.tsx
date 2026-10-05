@@ -209,6 +209,38 @@ export const Downloading: FC<{ title: string; style: string }> = ({ title, style
   )
 }
 
+/**
+ * 把后端/上游返回的错误整理成可读文本。
+ *
+ * fetcher 在请求失败时抛出 `{ status, message }`，其中 message 是响应体：
+ * - 本站 API 形如 `{ error: 'No access token...' }`
+ * - Graph 透传的错误形如 `{ error: { code, message, innerError } }`
+ * - 也可能是纯字符串或 HTML
+ * 这里统一提取出最有信息量的那一句，避免页面上只显示 `[object Object]`。
+ */
+function readableErrorMessage(message: unknown): string {
+  if (message == null) return 'Unknown error'
+  if (typeof message === 'string') return message
+
+  if (typeof message === 'object') {
+    const m = message as Record<string, any>
+    // 本站 API：{ error: 'xxx' }
+    if (typeof m.error === 'string') return m.error
+    // Graph：{ error: { code, message } } → 连 code 一起显示，便于识别许可证类故障
+    if (m.error && typeof m.error === 'object') {
+      const code = m.error.code ? `${m.error.code}: ` : ''
+      return `${code}${m.error.message || JSON.stringify(m.error)}`
+    }
+    if (typeof m.message === 'string') return m.message
+  }
+
+  try {
+    return JSON.stringify(message)
+  } catch {
+    return String(message)
+  }
+}
+
 const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ query, ssrIsAdmin }) => {
   const [selected, setSelected] = useState<{ [key: string]: boolean }>({})
   const [totalSelected, setTotalSelected] = useState<0 | 1 | 2>(0)
@@ -276,13 +308,37 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
     backendPath === '/' &&
     siteConfig.tianyiMountPath === '/'
 
+  // 区分「路径确实不存在」(404) 与「上游/后端故障」(400/500/502/503 等)。
+  // 旧实现把所有非 401 错误都渲染成 404 页面，会把上游的真实报错（例如 Graph 的
+  // "Tenant does not have a SPO license"、天翼云风控、WebDAV 后端故障）伪装成
+  // "文件不存在"，严重误导排查方向。现在只有 404 才显示 404 页面。
+  const isNotFound = error?.status === 404
+
   if (error && !tyErrorWithVirtual) {
     return (
       <PreviewContainer>
         {error.status === 401 ? (
           <Auth redirect={backendPath} drive={normalizedDrive} />
-        ) : (
+        ) : isNotFound ? (
           <FourOhFour errorMsg={JSON.stringify(error.message)} />
+        ) : (
+          <div className="my-12">
+            <div className="mx-auto max-w-2xl px-4">
+              <div className="mb-4 flex items-center gap-2 text-lg font-bold text-red-600 dark:text-red-500">
+                <FontAwesomeIcon icon="exclamation-circle" className="h-5 w-5" />
+                <span>
+                  {t('Error: {{message}}', {
+                    message: error.status ? `HTTP ${error.status}` : t('Unavailable'),
+                  })}
+                </span>
+              </div>
+              {/* 原样展示后端/上游返回的错误信息，便于直接定位问题 */}
+              <div className="overflow-hidden break-all rounded border border-red-500/20 bg-red-50 p-3 font-mono text-xs text-red-800 dark:bg-red-950/30 dark:text-red-200">
+                {readableErrorMessage(error.message)}
+              </div>
+              <div className="mt-3 text-sm text-gray-600 dark:text-gray-300">{t('Please refresh and try again.')}</div>
+            </div>
+          </div>
         )}
       </PreviewContainer>
     )

@@ -73,6 +73,10 @@ export async function generateAuthorisationUrl(): Promise<string> {
   params.append('response_type', 'code')
   params.append('scope', scope)
   params.append('response_mode', 'query')
+  // 强制弹出账号选择器。走 common 端点时若浏览器已登录多个 Microsoft 账号，
+  // 不加此参数会静默选用当前默认账号，可能授权到错误的账号/租户
+  // （典型后果：Graph 报 "Tenant does not have a SPO license"，且 refresh_token 会长期存错账号）。
+  params.append('prompt', 'select_account')
 
   return `${authUrl}?${params.toString()}`
 }
