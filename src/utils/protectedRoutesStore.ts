@@ -1,5 +1,6 @@
 import Redis from 'ioredis'
 import siteConfig from '../../config/site.config'
+import { logRedisError, redisConnectionOptions } from './redisOptions'
 
 /**
  * 私密目录动态配置存储（基于 Redis）
@@ -15,12 +16,8 @@ let initError: string | null = null
 
 try {
   if (process.env.REDIS_URL) {
-    kv = new Redis(process.env.REDIS_URL, {
-      retryStrategy: times => (times > 2 ? null : Math.min(times * 200, 1000)),
-      maxRetriesPerRequest: 2,
-      enableOfflineQueue: false,
-      lazyConnect: false,
-    })
+    kv = new Redis(process.env.REDIS_URL, redisConnectionOptions())
+    kv.on('error', logRedisError('protectedRoutesStore'))
   } else {
     initError = 'REDIS_URL 未配置'
   }

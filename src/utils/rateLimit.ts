@@ -1,5 +1,6 @@
 import Redis from 'ioredis'
 import siteConfig from '../../config/site.config'
+import { logRedisError, redisConnectionOptions } from './redisOptions'
 
 /**
  * 基于 Redis INCR + EXPIRE 的分布式限流。
@@ -8,8 +9,7 @@ import siteConfig from '../../config/site.config'
  * - 内存限流在 serverless 多实例下为近似值（每实例独立计数）；
  * - Redis 限流全局共享计数，并能跨实例生效。
  *
- * 容错策略：普通业务调用可在 Redis 不可用时降级放行；认证入口可显式要求 fail-closed，
- * 避免 Redis 故障时管理员密码限流完全失效。
+ * 容错策略：Redis 不可用时**放行**（见 checkRateLimit 注释），不因缓存故障拒绝用户。
  */
 
 let kv: Redis | null = null
@@ -17,12 +17,8 @@ let initError: string | null = null
 
 try {
   if (process.env.REDIS_URL) {
-    kv = new Redis(process.env.REDIS_URL, {
-      retryStrategy: times => (times > 2 ? null : Math.min(times * 200, 1000)),
-      maxRetriesPerRequest: 2,
-      enableOfflineQueue: false,
-      lazyConnect: false,
-    })
+    kv = new Redis(process.env.REDIS_URL, redisConnectionOptions())
+    kv.on('error', logRedisError('rateLimit'))
   } else {
     initError = 'REDIS_URL 未配置'
   }
@@ -42,6 +38,11 @@ export interface RateLimitResult {
   retryAfter: number
   /** Redis 是否真实生效（false 表示降级放行） */
   enforced: boolean
+  /**
+   * 是否因 Redis 故障而降级放行。
+   * 为 true 时 `allowed` 恒为 true，且计数未生效（不代表用户真的没超限）。
+   */
+  degraded: boolean
 }
 
 /**
@@ -54,21 +55,21 @@ export interface RateLimitResult {
  * - 不用 Lua 脚本：INCR + EXPIRE 两步在极少数并发场景下窗口可能略长，
  *   对登录限流这种粗粒度场景可接受，换取更简单的实现与更好的 Upstash 兼容性。
  *
+ * 容错语义（重要，2026-10 修正）：
+ * Redis 不可用/超时/命令失败时**一律放行**（`degraded: true`），绝不因此拒绝用户。
+ * 旧实现在认证入口传 `failClosed=true`，Redis 抖动即返回 429 —— 而此时计数根本没写进去，
+ * 用户看到"尝试次数过多，请 900 秒后重试"，实际是他一次都没被计数，
+ * 表现为"刷新好几次才能加载出来"（碰巧落到 Redis 握手成功的实例）。
+ * 真正防暴力破解的是：恒定时间比较 + 失败延迟 + 主机侧的其他防线；
+ * 限流只是纵深防御的一层，不应在故障时成为可用性单点。
+ *
  * @param key 限流维度标识（如 `login:ip:1.2.3.4`）
  * @param max 窗口内最大允许次数
  * @param windowSec 窗口大小（秒）
  */
-export async function checkRateLimit(
-  key: string,
-  max: number,
-  windowSec: number,
-  failClosed = false,
-): Promise<RateLimitResult> {
+export async function checkRateLimit(key: string, max: number, windowSec: number): Promise<RateLimitResult> {
   if (!kv) {
-    // Authentication callers can reject while the shared limiter is unavailable.
-    return failClosed
-      ? { allowed: false, count: 0, retryAfter: windowSec, enforced: false }
-      : { allowed: true, count: 0, retryAfter: 0, enforced: false }
+    return { allowed: true, count: 0, retryAfter: 0, enforced: false, degraded: true }
   }
   try {
     const k = `${PREFIX}${key}`
@@ -84,14 +85,16 @@ export async function checkRateLimit(
         count,
         retryAfter: ttl > 0 ? ttl : windowSec,
         enforced: true,
+        degraded: false,
       }
     }
-    return { allowed: true, count, retryAfter: 0, enforced: true }
-  } catch {
-    // Authentication callers reject on Redis errors; ordinary callers preserve availability.
-    return failClosed
-      ? { allowed: false, count: 0, retryAfter: windowSec, enforced: false }
-      : { allowed: true, count: 0, retryAfter: 0, enforced: false }
+    return { allowed: true, count, retryAfter: 0, enforced: true, degraded: false }
+  } catch (err) {
+    // Redis 故障：放行并告警。计数丢失期间限流事实失效，但这是可接受的取舍，
+    // 好过把正常用户（含管理员）锁在门外。
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn(`[rateLimit] Redis 不可用，本次放行 (${key}): ${msg}`)
+    return { allowed: true, count: 0, retryAfter: 0, enforced: false, degraded: true }
   }
 }
 

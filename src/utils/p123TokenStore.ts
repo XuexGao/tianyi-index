@@ -7,21 +7,14 @@
 import Redis from 'ioredis'
 
 import siteConfig from '../../config/site.config'
+import { logRedisError, redisConnectionOptions } from './redisOptions'
 
 let kv: Redis | null = null
 let initError: string | null = null
 try {
   if (process.env.REDIS_URL) {
-    kv = new Redis(process.env.REDIS_URL, {
-      retryStrategy: times => (times > 3 ? null : Math.min(times * 150, 1000)),
-      maxRetriesPerRequest: 3,
-      enableOfflineQueue: true,
-      lazyConnect: false,
-      connectTimeout: 8000,
-    })
-    kv.on('error', err => {
-      console.warn('[p123TokenStore] Redis error:', err?.message || err)
-    })
+    kv = new Redis(process.env.REDIS_URL, redisConnectionOptions())
+    kv.on('error', logRedisError('p123TokenStore'))
   } else {
     initError = 'REDIS_URL 未配置'
   }

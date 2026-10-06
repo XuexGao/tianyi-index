@@ -1,5 +1,6 @@
 import Redis from 'ioredis'
 import siteConfig from '../../config/site.config'
+import { logRedisError, redisConnectionOptions } from './redisOptions'
 
 /**
  * 天翼云 Cookie 会话存储（基于 Redis）
@@ -15,13 +16,8 @@ let kvInitError: string | null = null
 try {
   // 延迟构造，避免 REDIS_URL 缺失/格式错误时模块加载即抛错导致整个 API 路由 500
   if (process.env.REDIS_URL) {
-    kv = new Redis(process.env.REDIS_URL, {
-      // Upstash 等托管 Redis 在 serverless 环境下建议禁用重试，避免冷启动堆积
-      retryStrategy: times => (times > 2 ? null : Math.min(times * 200, 1000)),
-      maxRetriesPerRequest: 2,
-      enableOfflineQueue: false,
-      lazyConnect: false,
-    })
+    kv = new Redis(process.env.REDIS_URL, redisConnectionOptions())
+    kv.on('error', logRedisError('tianyiSessionStore'))
   } else {
     kvInitError = 'REDIS_URL 未配置'
   }

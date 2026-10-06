@@ -56,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // configured protected root, otherwise it could be used as a parent-path bypass.
   if (!protectedPath || !authorized) {
     const ip = getClientIp(req)
-    const rl = await checkRateLimit(`sign-token:fail:${ip}`, MAX_FAIL_ATTEMPTS, FAIL_WINDOW_SEC, true)
+    const rl = await checkRateLimit(`sign-token:fail:${ip}`, MAX_FAIL_ATTEMPTS, FAIL_WINDOW_SEC)
     if (!rl.allowed) {
       res.setHeader('Retry-After', String(rl.retryAfter))
       res.status(429).json({ error: `尝试次数过多，请 ${rl.retryAfter} 秒后重试` })

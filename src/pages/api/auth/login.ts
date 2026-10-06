@@ -17,7 +17,10 @@ import { getRuntimeConfigValue } from '../../../utils/runtimeConfigStore'
  * 成功则创建 Redis session 并设置 HTTP-only cookie。
  */
 
-// 限流参数：15 分钟窗口内最多 10 次尝试（Redis 计数，跨实例生效）
+// 限流参数：15 分钟窗口内最多 10 次**失败**尝试（Redis 计数，跨实例生效）
+// 注意：只统计失败，不统计成功。否则管理员在窗口内正常登录 10 次就会被锁在门外
+// （旧实现把计数放在密码校验之前，成功与否都消耗配额）。语义与
+// sign-protected-token、WebDAV 两处保持一致：只在失败分支计数。
 const MAX_ATTEMPTS = 10
 const WINDOW_SEC = 15 * 60
 
@@ -33,15 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return
   }
 
-  // 限流：基于 Redis INCR + EXPIRE，跨实例全局共享计数
   const ip = getClientIp(req)
-  const rl = await checkRateLimit(`login:ip:${ip}`, MAX_ATTEMPTS, WINDOW_SEC, true)
-  if (!rl.allowed) {
-    res.setHeader('Retry-After', String(rl.retryAfter))
-    res.status(429).json({ error: `尝试次数过多，请 ${rl.retryAfter} 秒后重试` })
-    return
-  }
-
   const { password } = req.body || {}
   const adminPassword = await getRuntimeConfigValue('ADMIN_PASSWORD')
 
@@ -57,6 +52,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // 防止时序攻击：用恒定时间比较（不因长度差异提前返回）
   if (!safeCompare(password, adminPassword)) {
+    // 仅失败时计数：达到上限则返回 429
+    const rl = await checkRateLimit(`login:fail:${ip}`, MAX_ATTEMPTS, WINDOW_SEC)
+    if (!rl.allowed) {
+      res.setHeader('Retry-After', String(rl.retryAfter))
+      res.status(429).json({ error: `尝试次数过多，请 ${rl.retryAfter} 秒后重试` })
+      return
+    }
     // 加一点延迟，防止暴力破解
     await new Promise(resolve => setTimeout(resolve, 500))
     res.status(401).json({ error: '密码错误' })

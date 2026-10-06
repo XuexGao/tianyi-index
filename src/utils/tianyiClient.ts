@@ -4,6 +4,7 @@ import { cloud189Login, LoginResult } from './tianyiAuth'
 import { saveTianyiSession } from './tianyiSessionStore'
 import { getTianyiUserAgent } from './tianyiUserAgent'
 import siteConfig from '../../config/site.config'
+import { logRedisError, redisCacheOptions } from './redisOptions'
 
 /**
  * 天翼云文件操作客户端
@@ -61,15 +62,10 @@ function setCachedFiles(folderId: string, folders: TianyiFolder[], files: Tianyi
 let cacheKv: Redis | null = null
 try {
   if (process.env.REDIS_URL) {
-    cacheKv = new Redis(process.env.REDIS_URL, {
-      retryStrategy: times => (times > 2 ? null : Math.min(times * 200, 1000)),
-      maxRetriesPerRequest: 2,
-      // 缓存必须快速失败：Redis 抖动时直接走上游，而不是排队等待
-      enableOfflineQueue: false,
-      lazyConnect: false,
-    })
+    // 纯缓存连接：Redis 不可用时快速失败回源，不排队等待（见 redisCacheOptions 注释）
+    cacheKv = new Redis(process.env.REDIS_URL, redisCacheOptions())
     // ioredis 的 error 事件必须有监听者，否则会以未处理异常终止进程
-    cacheKv.on('error', () => {})
+    cacheKv.on('error', logRedisError('tianyiClient.cache'))
   }
 } catch {
   cacheKv = null

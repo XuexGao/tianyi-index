@@ -1,5 +1,6 @@
 import Redis from 'ioredis'
 import siteConfig from '../../config/site.config'
+import { logRedisError, redisConnectionOptions } from './redisOptions'
 
 // Persistent key-value store is provided by Redis, hosted on Upstash
 // https://vercel.com/integrations/upstash
@@ -8,17 +9,8 @@ let kv: Redis | null = null
 let initError: string | null = null
 try {
   if (process.env.REDIS_URL) {
-    kv = new Redis(process.env.REDIS_URL, {
-      // serverless 冷启动：允许离线队列，避免连接未就绪时命令直接失败 → token 读空 → 403
-      retryStrategy: times => (times > 3 ? null : Math.min(times * 150, 1000)),
-      maxRetriesPerRequest: 3,
-      enableOfflineQueue: true,
-      lazyConnect: false,
-      connectTimeout: 8000,
-    })
-    kv.on('error', err => {
-      console.warn('[odAuthTokenStore] Redis error:', err?.message || err)
-    })
+    kv = new Redis(process.env.REDIS_URL, redisConnectionOptions())
+    kv.on('error', logRedisError('odAuthTokenStore'))
   } else {
     initError = 'REDIS_URL 未配置'
   }

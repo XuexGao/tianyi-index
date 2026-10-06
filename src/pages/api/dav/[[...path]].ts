@@ -25,12 +25,19 @@ import { ADMIN_TY_FOLDER_NAME, ADMIN_P123_FOLDER_NAME } from '../../../utils/dri
 const DEFAULT_USER_ID = 'default_user'
 
 /**
- * WebDAV 认证失败限流：15 分钟窗口内最多 20 次失败（按 IP，Redis 计数）。
+ * WebDAV 认证失败限流：15 分钟窗口内最多 100 次失败（按 IP，Redis 计数）。
  * WebDAV 的 Basic 认证使用 ADMIN_PASSWORD，若不限流可被无限暴力破解，
  * 且通过认证后可浏览两个云盘的完整内容，风险高于登录接口。
  * 仅对认证失败计数，正常 WebDAV 客户端（高频 PROPFIND/GET）不受影响。
+ *
+ * 阈值说明（2026-10 放宽，原为 20）：
+ * WebDAV 客户端（Windows 资源管理器 / RaiDrive / 挂载盘）在凭据过期或错误时
+ * 会**每次请求都带 Basic 认证头重试**，一次目录浏览就可能产生几十次失败尝试，
+ * 20 次的上限极易被正常客户端自己撞满并锁定 15 分钟。
+ * 配合 rateLimit 的"Redis 故障放行"语义，调高到 100 次既能挡住暴力破解
+ * （15 分钟内 100 次对猜测 32+ 位随机密码无意义），又不会误伤正常使用。
  */
-const MAX_AUTH_FAIL_ATTEMPTS = 20
+const MAX_AUTH_FAIL_ATTEMPTS = 100
 const AUTH_FAIL_WINDOW_SEC = 15 * 60
 
 let cachedTyUsername: string | null = null
@@ -673,7 +680,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!authOk) {
     // 认证失败：按 IP 限流，防止对 ADMIN_PASSWORD 暴力破解
     const ip = getClientIp(req)
-    const rl = await checkRateLimit(`dav:auth-fail:${ip}`, MAX_AUTH_FAIL_ATTEMPTS, AUTH_FAIL_WINDOW_SEC, true)
+    const rl = await checkRateLimit(`dav:auth-fail:${ip}`, MAX_AUTH_FAIL_ATTEMPTS, AUTH_FAIL_WINDOW_SEC)
     if (!rl.allowed) {
       res.setHeader('Retry-After', String(rl.retryAfter))
       res.setHeader('WWW-Authenticate', 'Basic realm="WebDAV"')

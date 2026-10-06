@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypt
 import Redis from 'ioredis'
 import siteConfig from '../../config/site.config'
 import apiConfig from '../../config/api.config'
+import { logRedisError, redisConnectionOptions } from './redisOptions'
 
 export const RUNTIME_CONFIG_KEY = `${siteConfig.kvPrefix}runtime:config`
 export const CONFIG_AUDIT_KEY = `${siteConfig.kvPrefix}admin:config:audit`
@@ -39,12 +40,9 @@ const SENSITIVE_KEYS = new Set<RuntimeConfigKey>([
 let redis: Redis | null = null
 try {
   if (process.env.REDIS_URL) {
-    redis = new Redis(process.env.REDIS_URL, {
-      retryStrategy: times => (times > 2 ? null : Math.min(times * 200, 1000)),
-      maxRetriesPerRequest: 2,
-      enableOfflineQueue: false,
-      lazyConnect: false,
-    })
+    redis = new Redis(process.env.REDIS_URL, redisConnectionOptions())
+    // error 事件必须有人监听，否则 ioredis 会以未处理异常冒泡
+    redis.on('error', logRedisError('runtimeConfig'))
   }
 } catch {
   redis = null
