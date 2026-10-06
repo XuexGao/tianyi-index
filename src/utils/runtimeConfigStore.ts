@@ -176,6 +176,7 @@ export async function invalidateConfigCaches(admin = 'admin') {
     // - odAuthTokenStore:   `${kvPrefix}od:access_token` / `${kvPrefix}od:refresh_token`
     // - adminSessionStore:  `${kvPrefix}admin:session:${token}`
     // - rateLimit:          `${kvPrefix}ratelimit:${key}`（注意是 ratelimit 无下划线）
+    // - tianyiClient L2:    `${kvPrefix}ty:cache:files:${folderId}`（文件列表缓存）
     // protected 下载令牌是 HMAC 无状态签名，不落 Redis，因此无需清理。
     const patterns = [
       `${siteConfig.kvPrefix}tianyi:session:*`,
@@ -184,18 +185,24 @@ export async function invalidateConfigCaches(admin = 'admin') {
       `${siteConfig.kvPrefix}od:refresh_token`,
       `${siteConfig.kvPrefix}admin:session:*`,
       `${siteConfig.kvPrefix}ratelimit:*`,
+      // 文件列表缓存：清缓存后应立即看到最新目录内容，不能等 60s TTL
+      `${siteConfig.kvPrefix}ty:cache:files:*`,
     ]
     for (const pattern of patterns) {
+      // 必须用 do-while：cursor 初值为 '0'，而 SCAN 的游标约定是
+      // "返回 '0' 表示遍历结束"。若写成 while (cursor !== '0')，条件在首次
+      // 判断时即为 false，循环体一次都不执行 —— 清缓存会静默变成空操作
+      // （且日志/返回值还显示 `pattern:0`，看起来"执行成功"）。
       let cursor = '0'
       let count = 0
-      while (cursor !== '0') {
+      do {
         const [next, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', '100')
         cursor = next
         if (keys.length) {
           await redis.del(...keys)
           count += keys.length
         }
-      }
+      } while (cursor !== '0')
       results.push(`${pattern}:${count}`)
     }
     await recordConfigAudit({ action: 'invalidate-cache', admin })

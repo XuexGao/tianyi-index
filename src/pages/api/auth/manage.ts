@@ -96,6 +96,16 @@ async function handleClearCache(_req: NextApiRequest, res: NextApiResponse) {
     results.push(`OneDrive 清除失败: ${e?.message || e}`)
   }
 
+  // 清天翼云文件列表缓存（L1 进程内 + L2 Redis）
+  // 否则清缓存后仍可能读到最多 60s 的陈旧目录内容
+  try {
+    const { clearFileCache } = await import('../../../utils/tianyiClient')
+    await clearFileCache()
+    results.push('天翼云文件列表缓存已清除')
+  } catch (e: any) {
+    results.push(`天翼云文件缓存清除失败: ${e?.message || e}`)
+  }
+
   res.status(200).json({ success: true, messages: results })
 }
 

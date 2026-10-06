@@ -10,6 +10,7 @@ import { getBaseUrl } from '../utils/getBaseUrl'
 import { formatModifiedDateTime } from '../utils/fileDetails'
 import { Checkbox, ChildIcon, ChildName, Downloading } from './FileListing'
 import { getStoredToken, Drive } from '../utils/protectedRouteHandler'
+import { usePrefetchFolder } from '../utils/usePrefetchFolder'
 import { VIRTUAL_ADMIN_FOLDER_ID, VIRTUAL_ONEDRIVE_FOLDER_ID, VIRTUAL_TIANYI_FOLDER_ID, VIRTUAL_P123_FOLDER_ID } from '../utils/driveResolver'
 
 const GridItem = ({
@@ -75,6 +76,7 @@ const FolderGridLayout = ({
   backendPath,
   apiBase,
   drive,
+  admin,
   folderChildren,
   selected,
   toggleItemSelected,
@@ -90,6 +92,7 @@ const FolderGridLayout = ({
   const clipboard = useClipboard()
   // getStoredToken 用后端路径 + drive 查私密目录 token
   const hashedToken = getStoredToken(backendPath, drive)
+  const prefetch = usePrefetchFolder(apiBase, backendPath, drive, Boolean(admin))
 
   const { t } = useTranslation()
 
@@ -141,6 +144,8 @@ const FolderGridLayout = ({
           <div
             key={c.id}
             className="od-grid-item group relative overflow-hidden rounded transition-all duration-100"
+            // 悬停即预取该文件夹（预热边缘缓存 + 服务端 Redis 缓存），点击时秒开
+            onMouseEnter={() => prefetch(c)}
           >
             <div className="absolute top-0 right-0 z-10 m-1 rounded bg-white/50 py-0.5 opacity-0 transition-all duration-100 group-hover:opacity-100 dark:bg-gray-900/50">
               {c.folder ? (

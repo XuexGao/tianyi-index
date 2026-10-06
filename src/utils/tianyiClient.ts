@@ -1,7 +1,9 @@
 import axios, { AxiosInstance } from 'axios'
+import Redis from 'ioredis'
 import { cloud189Login, LoginResult } from './tianyiAuth'
 import { saveTianyiSession } from './tianyiSessionStore'
 import { getTianyiUserAgent } from './tianyiUserAgent'
+import siteConfig from '../../config/site.config'
 
 /**
  * 天翼云文件操作客户端
@@ -42,6 +44,86 @@ function setCachedFiles(folderId: string, folders: TianyiFolder[], files: Tianyi
     fileCache.clear()
   }
   fileCache.set(folderId, { data: { folders, files }, expires: Date.now() + 60000 })
+}
+
+/**
+ * L2 缓存：Redis（跨 serverless 实例共享）。
+ *
+ * 为什么需要 L2：L1 进程内 Map 只在单实例内有效，冷启动即失效。而
+ * `resolveTianyiPath` 每次请求都要从根目录逐层 `getFiles` 走一遍祖先目录，
+ * 这些祖先列表既不是用户请求的 URL（Vercel 边缘缓存覆盖不到），又随实例分布
+ * 反复落空，是深层目录缓慢的主因之一。放进 Redis 后，任一同胞实例走过一次，
+ * 后续所有实例的路径解析都能命中。
+ *
+ * 失效策略与 L1 一致（60s TTL），保证"文件变更后最多等 60s 即刷新"的既有语义。
+ * Redis 不可用/超时一律静默降级为直连上游，缓存绝不成为故障点。
+ */
+let cacheKv: Redis | null = null
+try {
+  if (process.env.REDIS_URL) {
+    cacheKv = new Redis(process.env.REDIS_URL, {
+      retryStrategy: times => (times > 2 ? null : Math.min(times * 200, 1000)),
+      maxRetriesPerRequest: 2,
+      // 缓存必须快速失败：Redis 抖动时直接走上游，而不是排队等待
+      enableOfflineQueue: false,
+      lazyConnect: false,
+    })
+    // ioredis 的 error 事件必须有监听者，否则会以未处理异常终止进程
+    cacheKv.on('error', () => {})
+  }
+} catch {
+  cacheKv = null
+}
+
+const FILE_CACHE_TTL_SEC = 60
+// 单个目录列表超过此大小就不进 Redis，避免把 Upstash 配额耗在大目录上
+const REDIS_CACHE_MAX_BYTES = 256 * 1024
+
+function redisFilesKey(folderId: string): string {
+  return `${siteConfig.kvPrefix}ty:cache:files:${folderId}`
+}
+
+async function getRedisCachedFiles(
+  folderId: string
+): Promise<{ folders: TianyiFolder[]; files: TianyiFile[] } | null> {
+  if (!cacheKv) return null
+  try {
+    const raw = await cacheKv.get(redisFilesKey(folderId))
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    // 结构校验：缓存内容异常时视为未命中，绝不让脏数据流进业务
+    if (!parsed || !Array.isArray(parsed.folders) || !Array.isArray(parsed.files)) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+async function setRedisCachedFiles(folderId: string, folders: TianyiFolder[], files: TianyiFile[]): Promise<void> {
+  if (!cacheKv) return
+  try {
+    const payload = JSON.stringify({ folders, files })
+    if (payload.length > REDIS_CACHE_MAX_BYTES) return
+    await cacheKv.set(redisFilesKey(folderId), payload, 'EX', FILE_CACHE_TTL_SEC)
+  } catch {
+    // 缓存写失败不影响本次响应
+  }
+}
+
+/** 清空天翼云文件列表缓存（L1 + L2），供管理后台"清缓存"调用 */
+export async function clearFileCache(): Promise<void> {
+  fileCache.clear()
+  if (!cacheKv) return
+  try {
+    let cursor = '0'
+    do {
+      const [next, keys] = await cacheKv.scan(cursor, 'MATCH', `${siteConfig.kvPrefix}ty:cache:files:*`, 'COUNT', '100')
+      cursor = next
+      if (keys.length) await cacheKv.del(...keys)
+    } while (cursor !== '0')
+  } catch {
+    // 忽略：缓存清理失败不影响主流程
+  }
 }
 
 export interface TianyiFile {
@@ -156,12 +238,23 @@ export async function getFiles(
   username?: string,
   password?: string
 ): Promise<FilesResult> {
-  // 命中缓存则直接返回，跳过到 cloud.189.cn 的网络往返
+  // 命中 L1（进程内）则直接返回，跳过到 cloud.189.cn 的网络往返
   const cached = getCachedFiles(folderId)
   if (cached) {
     return {
       status: 'success',
       data: { folders: cached.folders, files: cached.files, folderId },
+    }
+  }
+
+  // L1 未命中则尝试 L2（Redis，跨实例共享）。
+  // 命中后回填 L1，让同一实例内的后续请求（如鉴权导航 + 路径解析重复列同一目录）走内存。
+  const redisCached = await getRedisCachedFiles(folderId)
+  if (redisCached) {
+    setCachedFiles(folderId, redisCached.folders, redisCached.files)
+    return {
+      status: 'success',
+      data: { folders: redisCached.folders, files: redisCached.files, folderId },
     }
   }
 
@@ -302,6 +395,8 @@ export async function getFiles(
 
     // 写入缓存：后续 60s 内对同一 folderId 的请求直接命中，无需打 cloud.189.cn
     setCachedFiles(folderId, folderList, fileList)
+    // L2 异步落 Redis 但需 await 完成，避免 serverless 响应返回后实例被冻结导致写丢失
+    await setRedisCachedFiles(folderId, folderList, fileList)
 
     return {
       status: 'success',

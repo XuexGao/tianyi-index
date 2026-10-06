@@ -623,6 +623,8 @@ const FileListing: FC<{ query?: ParsedUrlQuery; ssrIsAdmin?: boolean }> = ({ que
     backendPath,
     apiBase: apiBaseTyped,
     drive: normalizedDrive,
+    // 供悬停预取构造与真实请求一致的 URL（admin 模式需带 admin=1）
+    admin: resolved.admin,
     folderChildren,
     selected,
     toggleItemSelected,

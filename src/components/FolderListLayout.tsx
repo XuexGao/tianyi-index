@@ -11,6 +11,7 @@ import { formatModifiedDateTime, formatModifiedDateTimeCompact, humanFileSize } 
 
 import { ChildIcon, ChildName } from './FileListing'
 import { getStoredToken } from '../utils/protectedRouteHandler'
+import { usePrefetchFolder } from '../utils/usePrefetchFolder'
 import { VIRTUAL_ADMIN_FOLDER_ID, VIRTUAL_ONEDRIVE_FOLDER_ID, VIRTUAL_TIANYI_FOLDER_ID, VIRTUAL_P123_FOLDER_ID } from '../utils/driveResolver'
 
 const FileListItem: FC<{ fileContent: OdFolderChildren; showSize?: boolean }> = ({ fileContent: c, showSize }) => {
@@ -43,6 +44,7 @@ const FolderListLayout = ({
   backendPath,
   apiBase,
   drive,
+  admin,
   folderChildren,
   folderGenerating,
   handleFolderDownload,
@@ -51,6 +53,7 @@ const FolderListLayout = ({
   const clipboard = useClipboard()
   // getStoredToken 用后端路径 + drive 查私密目录 token
   const hashedToken = getStoredToken(backendPath, drive)
+  const prefetch = usePrefetchFolder(apiBase, backendPath, drive, Boolean(admin))
 
   const { t } = useTranslation()
 
@@ -83,6 +86,8 @@ const FolderListLayout = ({
         <div
           className="od-file-entry transition-all duration-100"
           key={c.id}
+          // 悬停即预取该文件夹（预热边缘缓存 + 服务端 Redis 缓存），点击时秒开
+          onMouseEnter={() => prefetch(c)}
         >
           <Link
             href={`${path === '/' ? '' : path}/${encodeURIComponent(c.name)}`}
